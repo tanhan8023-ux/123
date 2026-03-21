@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <script>
+      window.process = { 
+        env: { NODE_ENV: 'production' },
+        platform: 'browser',
+        version: 'v18.0.0',
+        nextTick: function(cb) { setTimeout(cb, 0); }
+      };
+    </script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#ffffff" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="https://img.heliar.top/file/1773477639567_Image_1773477073825_131.jpg" />
+    <title>Kem小手机</title>
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <script>
+      window.OneSignalDeferred = window.OneSignalDeferred || [];
+      OneSignalDeferred.push(async function(OneSignal) {
+        await OneSignal.init({
+          appId: "7ac5fb9d-291e-468b-ae27-8e702b8f1385",
+        });
+        OneSignal.Slidedown.promptPush();
+      });
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

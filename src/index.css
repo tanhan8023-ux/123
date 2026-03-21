@@ -1,0 +1,85 @@
+@import "tailwindcss";
+@import "react-grid-layout/css/styles.css";
+@import "react-resizable/css/styles.css";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --animate-spin-slow: spin 8s linear infinite;
+  --animate-music-bar-1: music-bar 0.8s ease-in-out infinite alternate;
+  --animate-music-bar-2: music-bar 1.2s ease-in-out infinite alternate;
+  --animate-music-bar-3: music-bar 1s ease-in-out infinite alternate;
+
+  @keyframes music-bar {
+    0% { height: 20%; }
+    100% { height: 100%; }
+  }
+
+  @keyframes morph {
+    0% { border-radius: 40% 60% 70% 30% / 40% 50% 60% 40%; }
+    50% { border-radius: 70% 30% 50% 50% / 30% 30% 70% 70%; }
+    100% { border-radius: 40% 60% 70% 30% / 40% 50% 60% 40%; }
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+html, body, #root {
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  background-color: transparent;
+  box-sizing: border-box;
+}
+
+body {
+  overscroll-behavior-x: none;
+  overscroll-behavior-y: none;
+}
+
+.markdown-body {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #333;
+}
+.markdown-body p {
+  margin-bottom: 1em;
+}
+.markdown-body h1, .markdown-body h2, .markdown-body h3 {
+  font-weight: 600;
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+  color: #111;
+}
+.markdown-body ul {
+  list-style-type: disc;
+  padding-left: 1.5em;
+  margin-bottom: 1em;
+}
+.markdown-body ol {
+  list-style-type: decimal;
+  padding-left: 1.5em;
+  margin-bottom: 1em;
+}
+.markdown-body li {
+  margin-bottom: 0.25em;
+}
+.markdown-body strong {
+  font-weight: 600;
+  color: #111;
+}
+.markdown-body a {
+  color: #2563eb;
+  text-decoration: none;
+}
+.markdown-body a:hover {
+  text-decoration: underline;
+}

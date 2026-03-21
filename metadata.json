@@ -1,0 +1,8 @@
+{
+  "name": "Copy of Copy of Kem小手机",
+  "description": "A virtual smartphone interface to chat with customizable AI personas.",
+  "requestFramePermissions": [
+    "geolocation",
+    "notifications"
+  ]
+}
