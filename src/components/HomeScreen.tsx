@@ -1038,7 +1038,7 @@ export function HomeScreen({ onNavigate, onLock, theme, setTheme, unreadCount, u
       case 'app-theme':
         return <div className="w-full h-full flex items-center justify-center"><AppIcon id="theme" icon={Palette} label="美化" onClick={() => onNavigate('theme')} theme={theme} isEditingLayout={isEditingLayout} onLongPress={() => setIsEditingLayout(true)} onEditIcon={() => { setActiveIconId('theme'); setShowIconEditModal(true); }} /></div>;
       case 'app-edit':
-        return <div className="w-full h-full flex items-center justify-center"><AppIcon id="edit" icon={Sliders} label="编辑" onClick={() => onNavigate('persona')} theme={theme} isEditingLayout={isEditingLayout} onLongPress={() => setIsEditingLayout(true)} onEditIcon={() => { setActiveIconId('edit'); setShowIconEditModal(true); }} /></div>;
+        return <div className="w-full h-full flex items-center justify-center"><AppIcon id="edit" icon={Sliders} label="编辑" onClick={() => setIsEditingLayout(true)} theme={theme} isEditingLayout={isEditingLayout} onLongPress={() => setIsEditingLayout(true)} onEditIcon={() => { setActiveIconId('edit'); setShowIconEditModal(true); }} /></div>;
       case 'app-music':
         return <div className="w-full h-full flex items-center justify-center"><AppIcon id="music" icon={Music} label="音乐" onClick={() => onNavigate('music')} theme={theme} isEditingLayout={isEditingLayout} onLongPress={() => setIsEditingLayout(true)} onEditIcon={() => { setActiveIconId('music'); setShowIconEditModal(true); }} /></div>;
       case 'app-xhs':
