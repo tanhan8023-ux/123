@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { MessageCircle, Book, Music, Hash, HeartPulse, Sprout, Truck, MoreHorizontal, Settings, Lock, Palette, Mic, Image as ImageIcon, PlusCircle, Smile, CloudSun, Heart, Sun, ShoppingBag, Cloud, CloudRain, CloudLightning, CloudSnow, CloudDrizzle, CloudFog, RefreshCw, Utensils, Smartphone, Minus, Plus, LayoutGrid, X, Upload, Type, RefreshCcw, Download, Calendar as CalendarIcon, FileText, Camera as CameraIcon, Wallet, Phone } from 'lucide-react';
+import { MessageCircle, Book, Music, Hash, HeartPulse, Sprout, Truck, MoreHorizontal, Settings, Lock, Palette, Mic, Image as ImageIcon, PlusCircle, Smile, CloudSun, Heart, Sun, ShoppingBag, Cloud, CloudRain, CloudLightning, CloudSnow, CloudDrizzle, CloudFog, RefreshCw, Utensils, Smartphone, Minus, Plus, LayoutGrid, X, Upload, Type, RefreshCcw, Download, Calendar as CalendarIcon, FileText, Camera as CameraIcon, Wallet, Phone, Sliders } from 'lucide-react';
 import { Responsive, WidthProvider } from 'react-grid-layout/legacy';
 import { motion, AnimatePresence } from 'motion/react';
 import { ThemeSettings, UserProfile, Song, Screen } from '../types';
@@ -237,6 +237,9 @@ export function HomeScreen({ onNavigate, onLock, theme, setTheme, unreadCount, u
     { type: 'dynamic-status', label: '动态状态', w: 4, h: 2, icon: LayoutGrid },
     { type: 'app-chat', label: '微信', w: 1, h: 1, icon: MessageCircle },
     { type: 'app-persona', label: '世界书', w: 1, h: 1, icon: Book },
+    { type: 'app-settings', label: '设置', w: 1, h: 1, icon: Settings },
+    { type: 'app-theme', label: '美化', w: 1, h: 1, icon: Palette },
+    { type: 'app-edit', label: '编辑', w: 1, h: 1, icon: Sliders },
     { type: 'app-music', label: '音乐', w: 1, h: 1, icon: Music },
     { type: 'app-xhs', label: '小红书', w: 1, h: 1, icon: Hash },
     { type: 'app-treehole', label: '树洞', w: 1, h: 1, icon: Smile },
@@ -295,9 +298,13 @@ export function HomeScreen({ onNavigate, onLock, theme, setTheme, unreadCount, u
                 { id: 'image', type: 'image', x: 2, y: 2, w: 2, h: 1 },
                 { id: 'app-chat', type: 'app-chat', x: 0, y: 3, w: 1, h: 1 },
                 { id: 'app-persona', type: 'app-persona', x: 1, y: 3, w: 1, h: 1 },
-                { id: 'app-music', type: 'app-music', x: 2, y: 3, w: 1, h: 1 },
-                { id: 'app-xhs', type: 'app-xhs', x: 3, y: 3, w: 1, h: 1 },
-                { id: 'music-player', type: 'music-player', x: 0, y: 4, w: 4, h: 2 },
+                { id: 'app-settings', type: 'app-settings', x: 2, y: 3, w: 1, h: 1 },
+                { id: 'app-theme', type: 'app-theme', x: 3, y: 3, w: 1, h: 1 },
+                { id: 'app-edit', type: 'app-edit', x: 0, y: 4, w: 1, h: 1 },
+                { id: 'app-music', type: 'app-music', x: 1, y: 4, w: 1, h: 1 },
+                { id: 'app-xhs', type: 'app-xhs', x: 2, y: 4, w: 1, h: 1 },
+                { id: 'app-treehole', type: 'app-treehole', x: 3, y: 4, w: 1, h: 1 },
+                { id: 'music-player', type: 'music-player', x: 0, y: 5, w: 4, h: 2 },
                 { id: 'weather', type: 'weather', x: 0, y: 6, w: 4, h: 2 },
               ]
             },
@@ -324,7 +331,14 @@ export function HomeScreen({ onNavigate, onLock, theme, setTheme, unreadCount, u
       }));
     } else {
       let migrated = false;
-      const newPages = theme.layout.pages.map(page => {
+      const allWidgetTypes = theme.layout.pages.flatMap(p => p.widgets.map(w => w.type));
+      const requiredApps = [
+        { id: 'app-settings', type: 'app-settings', label: '设置' },
+        { id: 'app-theme', type: 'app-theme', label: '美化' },
+        { id: 'app-edit', type: 'app-edit', label: '编辑' }
+      ];
+
+      let newPages = theme.layout.pages.map(page => {
         const newWidgets: any[] = [];
         page.widgets.forEach(w => {
           if (w.type === 'app') {
@@ -348,6 +362,28 @@ export function HomeScreen({ onNavigate, onLock, theme, setTheme, unreadCount, u
         });
         return { ...page, widgets: newWidgets };
       });
+
+      // Check for missing required apps and add them to the first page if missing
+      const missingApps = requiredApps.filter(app => !allWidgetTypes.includes(app.type));
+      if (missingApps.length > 0) {
+        migrated = true;
+        const firstPage = newPages[0] || { id: 'page-0', widgets: [] };
+        const updatedWidgets = [...firstPage.widgets];
+        
+        missingApps.forEach((app, index) => {
+          updatedWidgets.push({
+            id: app.id,
+            type: app.type,
+            x: index % 4,
+            y: 10, // Put at the bottom of the first page
+            w: 1,
+            h: 1
+          });
+        });
+        
+        newPages[0] = { ...firstPage, widgets: updatedWidgets };
+      }
+
       if (migrated) {
         setTheme(prev => ({ ...prev, layout: { pages: newPages } }));
       }
@@ -997,6 +1033,12 @@ export function HomeScreen({ onNavigate, onLock, theme, setTheme, unreadCount, u
         return <div className="w-full h-full flex items-center justify-center"><AppIcon id="chat" icon={MessageCircle} label="微信" onClick={() => onNavigate('chat')} theme={theme} badge={unreadCount} isEditingLayout={isEditingLayout} onLongPress={() => setIsEditingLayout(true)} onEditIcon={() => { setActiveIconId('chat'); setShowIconEditModal(true); }} /></div>;
       case 'app-persona':
         return <div className="w-full h-full flex items-center justify-center"><AppIcon id="persona" icon={Book} label="世界书" onClick={() => onNavigate('persona')} theme={theme} isEditingLayout={isEditingLayout} onLongPress={() => setIsEditingLayout(true)} onEditIcon={() => { setActiveIconId('persona'); setShowIconEditModal(true); }} /></div>;
+      case 'app-settings':
+        return <div className="w-full h-full flex items-center justify-center"><AppIcon id="settings" icon={Settings} label="设置" onClick={() => onNavigate('api')} theme={theme} isEditingLayout={isEditingLayout} onLongPress={() => setIsEditingLayout(true)} onEditIcon={() => { setActiveIconId('settings'); setShowIconEditModal(true); }} /></div>;
+      case 'app-theme':
+        return <div className="w-full h-full flex items-center justify-center"><AppIcon id="theme" icon={Palette} label="美化" onClick={() => onNavigate('theme')} theme={theme} isEditingLayout={isEditingLayout} onLongPress={() => setIsEditingLayout(true)} onEditIcon={() => { setActiveIconId('theme'); setShowIconEditModal(true); }} /></div>;
+      case 'app-edit':
+        return <div className="w-full h-full flex items-center justify-center"><AppIcon id="edit" icon={Sliders} label="编辑" onClick={() => onNavigate('persona')} theme={theme} isEditingLayout={isEditingLayout} onLongPress={() => setIsEditingLayout(true)} onEditIcon={() => { setActiveIconId('edit'); setShowIconEditModal(true); }} /></div>;
       case 'app-music':
         return <div className="w-full h-full flex items-center justify-center"><AppIcon id="music" icon={Music} label="音乐" onClick={() => onNavigate('music')} theme={theme} isEditingLayout={isEditingLayout} onLongPress={() => setIsEditingLayout(true)} onEditIcon={() => { setActiveIconId('music'); setShowIconEditModal(true); }} /></div>;
       case 'app-xhs':
@@ -1142,70 +1184,7 @@ export function HomeScreen({ onNavigate, onLock, theme, setTheme, unreadCount, u
         ))}
       </div>
 
-      {/* Dock */}
-      <div className="mt-auto h-[60px] mx-5 bg-white/50 backdrop-blur-2xl rounded-[2rem] flex items-center justify-around px-6 shadow-sm border border-white/40 shrink-0">
-        <button 
-          onClick={() => isEditingLayout ? (() => { setActiveIconId('dock_settings'); setShowIconEditModal(true); })() : onNavigate('api')} 
-          className={`w-11 h-11 bg-black/20 rounded-full flex items-center justify-center text-white active:scale-95 transition-transform overflow-hidden relative ${isEditingLayout ? 'animate-pulse' : ''}`}
-        >
-          {theme.customIcons?.['dock_settings'] ? (
-             <img src={theme.customIcons['dock_settings']} className="w-full h-full object-cover" alt="Settings" />
-          ) : (
-             <Settings size={22} />
-          )}
-          {isEditingLayout && (
-            <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-              <Upload size={16} className="text-white drop-shadow-md" />
-            </div>
-          )}
-        </button>
-        <button 
-          onClick={() => isEditingLayout ? (() => { setActiveIconId('dock_layout'); setShowIconEditModal(true); })() : setIsEditingLayout(true)} 
-          className={`w-11 h-11 bg-black/20 rounded-full flex items-center justify-center text-white active:scale-95 transition-transform overflow-hidden relative ${isEditingLayout ? 'animate-pulse' : ''}`}
-        >
-          {theme.customIcons?.['dock_layout'] ? (
-             <img src={theme.customIcons['dock_layout']} className="w-full h-full object-cover" alt="Layout" />
-          ) : (
-             <LayoutGrid size={22} />
-          )}
-          {isEditingLayout && (
-            <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-              <Upload size={16} className="text-white drop-shadow-md" />
-            </div>
-          )}
-        </button>
-        <button 
-          onClick={() => isEditingLayout ? (() => { setActiveIconId('dock_lock'); setShowIconEditModal(true); })() : onLock()} 
-          className={`w-11 h-11 bg-black/20 rounded-full flex items-center justify-center text-white active:scale-95 transition-transform overflow-hidden relative ${isEditingLayout ? 'animate-pulse' : ''}`}
-        >
-          {theme.customIcons?.['dock_lock'] ? (
-             <img src={theme.customIcons['dock_lock']} className="w-full h-full object-cover" alt="Lock" />
-          ) : (
-             <Lock size={22} />
-          )}
-          {isEditingLayout && (
-            <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-              <Upload size={16} className="text-white drop-shadow-md" />
-            </div>
-          )}
-        </button>
-        <button 
-          onClick={() => isEditingLayout ? (() => { setActiveIconId('dock_theme'); setShowIconEditModal(true); })() : onNavigate('theme')} 
-          className={`w-11 h-11 bg-black/20 rounded-full flex items-center justify-center text-white active:scale-95 transition-transform overflow-hidden relative ${isEditingLayout ? 'animate-pulse' : ''}`}
-        >
-          {theme.customIcons?.['dock_theme'] ? (
-             <img src={theme.customIcons['dock_theme']} className="w-full h-full object-cover" alt="Theme" />
-          ) : (
-             <Palette size={22} />
-          )}
-          {isEditingLayout && (
-            <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-              <Upload size={16} className="text-white drop-shadow-md" />
-            </div>
-          )}
-        </button>
-      </div>
-
+      {/* Dock removed as per user request */}
       {/* Edit Layout Top Bar */}
       <AnimatePresence>
         {isEditingLayout && (
