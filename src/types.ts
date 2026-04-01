@@ -35,6 +35,7 @@ export interface Persona {
     isMonitoringEnabled?: boolean;
   };
   diaryEntries?: DiaryEntry[];
+  balance?: number;
 }
 
 export interface DiaryEntry {

@@ -46,6 +46,7 @@ export const processAiResponseParts = (responseText: string | { responseText: st
   let currentQuotedId = aiQuotedId;
   let orderItems: string[] = [];
   let shouldRecall = false;
+  let checkPhoneRequest = false;
 
   const parseAmountAndNote = (content: string) => {
     const parts = content.split(/[,，、]/);
@@ -93,24 +94,55 @@ export const processAiResponseParts = (responseText: string | { responseText: st
     } else if (trimmedPart.match(recallRegex)) {
       shouldRecall = true;
     } else if (trimmedPart.match(checkPhoneRegex)) {
+      checkPhoneRequest = true;
       processedParts.push({ msgType: 'checkPhoneRequest', text: '[请求查看你的手机]', checkPhoneStatus: 'pending' });
     } else if (trimmedPart.match(imageRegex)) {
       const match = trimmedPart.match(imageRegex)!;
       const imageUrl = match[1].trim();
-      processedParts.push({ msgType: 'image', imageUrl });
+      processedParts.push({ msgType: 'sticker', sticker: imageUrl });
     } else if (trimmedPart.match(locationRegex)) {
       const match = trimmedPart.match(locationRegex)!;
-      const locParts = match[1].split(/[,，、]/).map(s => s.trim());
-      const address = locParts[0];
-      const lat = parseFloat(locParts[1] || '0');
-      const lng = parseFloat(locParts[2] || '0');
-      processedParts.push({ msgType: 'location', location: { address, latitude: lat, longitude: lng } });
+      const content = match[1].trim();
+      const parts = content.split(/[,，、]/);
+      const lat = parseFloat(parts[0]);
+      const lng = parseFloat(parts[1]);
+      const address = parts.slice(2).join(',').trim();
+      processedParts.push({ 
+        msgType: 'location', 
+        location: { latitude: lat, longitude: lng, address: address || undefined } 
+      });
     } else if (trimmedPart.match(quoteRegex)) {
       const match = trimmedPart.match(quoteRegex)!;
       currentQuotedId = match[1].trim();
     } else {
-      processedParts.push({ msgType: 'text', text: trimmedPart });
+      // Clean any stray ID tags or other markers
+      let cleanText = trimmedPart.replace(/[\[［]ID[:：]\s*[^\]］]+[\]］]/gi, '').trim();
+      
+      if (cleanText) {
+        if (isSegmentResponse) {
+          // Updated segmentation regex to be more comprehensive
+          const segments = cleanText.split(/([。！？\n!?]+|(?:\.\.\.+)|\\n)/).filter((s: string) => s.trim().length > 0);
+          for (let i = 0; i < segments.length; i++) {
+            if (i > 0 && segments[i].match(/^[。！？\n!?.]+/)) {
+              if (processedParts.length > 0 && processedParts[processedParts.length - 1].msgType === 'text') {
+                processedParts[processedParts.length - 1].text += segments[i];
+              } else {
+                processedParts.push({ msgType: 'text', text: segments[i].trim() });
+              }
+            } else {
+              processedParts.push({ msgType: 'text', text: segments[i].trim() });
+            }
+          }
+        } else {
+          processedParts.push({ msgType: 'text', text: cleanText });
+        }
+      }
     }
+  }
+
+  // If no parts were created (e.g. empty response), add a fallback
+  if (processedParts.length === 0) {
+    processedParts.push({ msgType: 'text', text: '...' });
   }
 
   return {
@@ -118,7 +150,7 @@ export const processAiResponseParts = (responseText: string | { responseText: st
     quotedMessageId: currentQuotedId,
     orderItems,
     shouldRecall,
-    checkPhoneRequest: processedParts.some(p => p.msgType === 'checkPhoneRequest'),
+    checkPhoneRequest,
     nextTag
   };
 };

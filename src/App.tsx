@@ -68,7 +68,7 @@ import { getPhoneData } from './services/phoneService';
 import { fetchAiResponse, generatePersonaStatus, checkIfPersonaIsOffline, generateUserRemark, generateDiaryEntry, generateXHSPost, withRetry } from './services/aiService';
 import { lyricService } from './services/lyricService';
 import { repairJson } from './utils';
-import { processAiResponseParts } from './utils/chatUtils';
+import { processAiResponseParts, cleanContextMessage } from './utils/chatUtils';
 
 export default function App() {
   const [isReady, setIsReady] = useState(false);
@@ -1142,7 +1142,7 @@ export default function App() {
           .filter(m => m.personaId === targetPersona!.id && !m.groupId)
           .slice(-10)
           .map(m => ({
-            role: m.role === 'model' ? 'assistant' : 'user',
+            role: m.role === 'model' ? 'model' : 'user',
             content: cleanContextMessage(m.text)
           }));
 
@@ -1553,10 +1553,6 @@ export default function App() {
     }
   };
 
-  const cleanContextMessage = (text: string) => {
-    return text.replace(/\[STICKER:\s*data:[^\]]+\]/g, '[STICKER: image]');
-  };
-
   const handleCreateGroup = (name: string, memberIds: string[]) => {
     const newGroup: GroupChat = {
       id: generateId(),
@@ -1693,6 +1689,7 @@ export default function App() {
             theaterId
           };
           setMessages(prev => [...prev, receiptMsg]);
+          setPersonas(prev => prev.map(p => p.id === personaId ? { ...p, balance: (p.balance || 0) + amount } : p));
           // Small delay before typing starts
           await new Promise(resolve => setTimeout(resolve, 600));
         }
@@ -1703,15 +1700,32 @@ export default function App() {
 
         const isCheckingPhoneUserTrigger = /查我手机|查岗|看我手机|查手机/.test(text) && msgType === 'text';
         
-        let promptText = msgType === 'transfer' ? `[系统提示：用户向你转账了 ${amount} 元${transferNote ? `，备注是：“${transferNote}”` : ''}。这笔钱已经实时进入了你的虚拟钱包余额。你可以选择收下并回复，或者如果你想退还，请在回复中包含 [REFUND: 金额, 备注]。如果你想主动发起收款，请包含 [REQUEST: 金额, 备注]。如果你想主动转账给用户，请包含 [TRANSFER: 金额, 备注]。请作出符合你人设的反应，不要说没收到，因为系统已经确认入账。]` : 
-                           msgType === 'relativeCard' ? `[系统提示：用户赠送了你一张亲属卡，额度为 ${relativeCard?.limit} 元。请作出符合你人设的反应。]` :
-                           msgType === 'sticker' ? `[系统提示：用户发送了一个表情包。你可以选择回复文字，或者如果你也想发表情包，请包含 [STICKER: 表情名称]（可用表情：${allStickers}）。请作出符合你人设的反应。]` :
-                           msgType === 'listenTogether' ? `[系统提示：用户邀请你“一起听歌”。请表现出开心和期待，可以问问用户想听什么，或者推荐一首你喜欢的歌。]` :
-                           msgType === 'image' ? `[视觉感知：用户发送了一张图片。请仔细观察图片中的每一个细节（包括主体、背景、人物表情、物品、文字等），然后以你的人设身份给出最自然、最感性的即时反应。不要像AI一样描述图片，要像真正的朋友看到照片后直接评论。如果图片内容与你之前说的话有矛盾，请以图片为准。]` :
-                           isCheckingPhoneUserTrigger ? `[系统提示：用户主动要求你查看TA的手机（查岗）。请开始执行查岗流程。]` :
-                           text.trim();
+        let promptText = text.trim();
+        let systemHint = "";
+
+        if (msgType === 'transfer') {
+          systemHint = `[系统提示：用户向你转账了 ${amount} 元${transferNote ? `，备注是：“${transferNote}”` : ''}。这笔钱已经实时进入了你的虚拟钱包余额。你可以选择收下并回复，或者如果你想退还，请在回复中包含 [REFUND: 金额, 备注]。如果你想主动发起收款，请包含 [REQUEST: 金额, 备注]。如果你想主动转账给用户，请包含 [TRANSFER: 金额, 备注]。请作出符合你人设的反应，不要说没收到，因为系统已经确认入账。]`;
+        } else if (msgType === 'relativeCard') {
+          systemHint = `[系统提示：用户赠送了你一张亲属卡，额度为 ${relativeCard?.limit} 元。请作出符合你人设的反应。]`;
+        } else if (msgType === 'sticker') {
+          systemHint = `[系统提示：用户发送了一个表情包。你可以选择回复文字，或者如果你也想发表情包，请包含 [STICKER: 表情名称]（可用表情：${allStickers}）。请作出符合你人设的反应。]`;
+        } else if (msgType === 'listenTogether') {
+          systemHint = `[系统提示：用户邀请你“一起听歌”。请表现出开心和期待，可以问问用户想听什么，或者推荐一首你喜欢的歌。]`;
+        } else if (msgType === 'image') {
+          systemHint = `[视觉感知：用户发送了一张图片。请仔细观察图片中的每一个细节（包括主体、背景、人物表情、物品、文字等），然后以你的人设身份给出最自然、最感性的即时反应。不要像AI一样描述图片，要像真正的朋友看到照片后直接评论。如果图片内容与你之前说的话有矛盾，请以图片为准。]`;
+        } else if (isCheckingPhoneUserTrigger) {
+          systemHint = `[系统提示：用户主动要求你查看TA的手机（查岗）。请开始执行查岗流程。]`;
+        }
+
+        if (systemHint) {
+          promptText = promptText ? `${systemHint}\n\n用户附言：${promptText}` : systemHint;
+        }
         
         let additionalSystemInstructions = "【重要提示】如果用户连续发送了多条消息，请将它们作为一个整体来理解，并给出一个连贯的、符合语境的回复，切勿对每一句话单独、机械地回复。";
+        
+        if (targetPersona) {
+          additionalSystemInstructions += `\n【财务状态】你当前的虚拟钱包余额为：${targetPersona.balance || 0} 元。`;
+        }
 
         // Add phone checking instructions if triggered
         if (isCheckingPhoneUserTrigger || text.includes('[系统提示：用户允许了你查看TA的手机。]')) {
@@ -1759,6 +1773,24 @@ ${recentMsgs}`;
 
         const latestMessages = messagesRef.current.filter(m => m.personaId === personaId && !m.groupId && m.theaterId === theaterId).slice(-50);
         
+        // If it's a transfer, we just added a receipt message to the state, but messagesRef.current might not have it yet.
+        // We should manually add it to the history we send to the AI to ensure it sees its own "Received" bubble.
+        if (msgType === 'transfer' && amount) {
+          const manualReceipt: Message = {
+            id: 'temp-receipt-' + Date.now(),
+            personaId: personaId,
+            role: 'model',
+            text: '',
+            msgType: 'transfer',
+            amount: amount,
+            transferNote: transferNote,
+            isReceived: true,
+            createdAt: Date.now(),
+            theaterId
+          };
+          latestMessages.push(manualReceipt);
+        }
+
         // Ensure the current user message is in the history if it's missing (due to state update lag)
         if (userMsgId && !latestMessages.some(m => m.id === userMsgId)) {
           const currentMsg = messagesRef.current.find(m => m.id === userMsgId);
@@ -1773,7 +1805,7 @@ ${recentMsgs}`;
         }
 
         const contextMessages = latestMessages.map(m => ({
-          role: m.role === 'model' ? 'assistant' : 'user',
+          role: m.role === 'model' ? 'model' : 'user',
           content: m.isRecalled ? '[此消息已撤回]' : (
                    m.msgType === 'transfer' ? (
                      m.role === 'user' ? 
@@ -1881,6 +1913,21 @@ ${recentMsgs}`;
             theaterId
           };
           setMessages(prev => [...prev, aiMsg]);
+
+          // Handle financial updates from AI
+          if (part.msgType === 'transfer' && part.amount) {
+            if (part.isRefund) {
+              // AI refunds to user
+              setUserProfile(prev => ({ ...prev, balance: (prev.balance || 0) + part.amount! }));
+              setPersonas(prev => prev.map(p => p.id === personaId ? { ...p, balance: (p.balance || 0) - part.amount! } : p));
+            } else if (part.isRequest) {
+              // AI requests money (no balance change yet, user needs to pay)
+            } else {
+              // AI transfers to user
+              setUserProfile(prev => ({ ...prev, balance: (prev.balance || 0) + part.amount! }));
+              setPersonas(prev => prev.map(p => p.id === personaId ? { ...p, balance: (p.balance || 0) - part.amount! } : p));
+            }
+          }
 
           if (part.msgType === 'checkPhoneRequest') {
             setAiPhoneRequest({ personaId, msgId: aiMsg.id });

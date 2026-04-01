@@ -36,64 +36,36 @@ const INGREDIENTS: Ingredient[] = [
 type GameState = 'dice-roll' | 'mixing' | 'serving' | 'decision' | 'truth-or-dare' | 'answering' | 'drunk-event' | 'round-end' | 'user-asking';
 
 export function BartenderGame({ onBack, apiSettings, personas, messages, setMessages, userProfile, worldbook, theme }: Props) {
-  const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(() => {
-    const saved = localStorage.getItem('bartender_selectedPersonaId');
-    return saved ? JSON.parse(saved) : null;
-  });
-  const [selectedIngredients, setSelectedIngredients] = useState<Ingredient[]>(() => {
-    const saved = localStorage.getItem('bartender_selectedIngredients');
-    return saved ? JSON.parse(saved) : [];
-  });
-  const [gameState, setGameState] = useState<GameState>(() => {
-    const saved = localStorage.getItem('bartender_gameState');
-    return saved ? JSON.parse(saved) : 'dice-roll';
-  });
-  const [bartenderComment, setBartenderComment] = useState(() => {
-    const saved = localStorage.getItem('bartender_bartenderComment');
-    return saved ? JSON.parse(saved) : '';
-  });
-  const [question, setQuestion] = useState(() => {
-    const saved = localStorage.getItem('bartender_question');
-    return saved ? JSON.parse(saved) : '';
-  });
-  const [userAnswer, setUserAnswer] = useState(() => {
-    const saved = localStorage.getItem('bartender_userAnswer');
-    return saved ? JSON.parse(saved) : '';
-  });
+  const safeParse = (key: string, fallback: any) => {
+    const val = localStorage.getItem(key);
+    if (!val) return fallback;
+    try {
+      return JSON.parse(val);
+    } catch (e) {
+      console.error(`Failed to parse ${key} from localStorage:`, e);
+      return fallback;
+    }
+  };
+
+  const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(() => safeParse('bartender_selectedPersonaId', null));
+  const [selectedIngredients, setSelectedIngredients] = useState<Ingredient[]>(() => safeParse('bartender_selectedIngredients', []));
+  const [gameState, setGameState] = useState<GameState>(() => safeParse('bartender_gameState', 'dice-roll'));
+  const [bartenderComment, setBartenderComment] = useState<string>(() => safeParse('bartender_bartenderComment', ''));
+  const [question, setQuestion] = useState<string>(() => safeParse('bartender_question', ''));
+  const [userAnswer, setUserAnswer] = useState<string>(() => safeParse('bartender_userAnswer', ''));
   const [isLoading, setIsLoading] = useState(false);
-  const [history, setHistory] = useState<Array<{ role: 'bartender' | 'user' | 'system', text: string }>>(() => {
-    const saved = localStorage.getItem('bartender_history');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [history, setHistory] = useState<Array<{ role: 'bartender' | 'user' | 'system', text: string }>>(() => safeParse('bartender_history', []));
   
   // Dice Game State
-  const [userDice, setUserDice] = useState<number>(() => {
-    const saved = localStorage.getItem('bartender_userDice');
-    return saved ? JSON.parse(saved) : 0;
-  });
-  const [aiDice, setAiDice] = useState<number>(() => {
-    const saved = localStorage.getItem('bartender_aiDice');
-    return saved ? JSON.parse(saved) : 0;
-  });
-  const [winner, setWinner] = useState<'user' | 'ai' | null>(() => {
-    const saved = localStorage.getItem('bartender_winner');
-    return saved ? JSON.parse(saved) : null;
-  });
+  const [userDice, setUserDice] = useState<number>(() => safeParse('bartender_userDice', 0));
+  const [aiDice, setAiDice] = useState<number>(() => safeParse('bartender_aiDice', 0));
+  const [winner, setWinner] = useState<'user' | 'ai' | null>(() => safeParse('bartender_winner', null));
   const [isRolling, setIsRolling] = useState(false);
   
   // Drunk State
-  const [intoxication, setIntoxication] = useState(() => {
-    const saved = localStorage.getItem('bartender_intoxication');
-    return saved ? JSON.parse(saved) : 0;
-  });
-  const [userIntoxication, setUserIntoxication] = useState(() => {
-    const saved = localStorage.getItem('bartender_userIntoxication');
-    return saved ? JSON.parse(saved) : 0;
-  });
-  const [gameMemory, setGameMemory] = useState<string[]>(() => {
-    const saved = localStorage.getItem('bartender_gameMemory');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [intoxication, setIntoxication] = useState<number>(() => safeParse('bartender_intoxication', 0));
+  const [userIntoxication, setUserIntoxication] = useState<number>(() => safeParse('bartender_userIntoxication', 0));
+  const [gameMemory, setGameMemory] = useState<string[]>(() => safeParse('bartender_gameMemory', []));
   const DRUNK_THRESHOLD = 3;
   
   // Heart Rate State
