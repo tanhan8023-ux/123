@@ -118,6 +118,10 @@ export const processAiResponseParts = (responseText: string | { responseText: st
       // Clean any stray ID tags or other markers
       let cleanText = trimmedPart.replace(/[\[［]ID[:：]\s*[^\]］]+[\]］]/gi, '').trim();
       
+      if (userProfile.enableActionDescriptions === false) {
+        cleanText = cleanText.replace(/\([^)]*\)/g, '').replace(/（[^）]*）/g, '').trim();
+      }
+      
       if (cleanText) {
         if (isSegmentResponse) {
           // Updated segmentation regex to be more comprehensive

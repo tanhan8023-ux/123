@@ -78,6 +78,7 @@ export interface UserProfile {
   avatarPendant?: string;
   autoReplyEnabled?: boolean;
   autoReplyContent?: string;
+  enableActionDescriptions?: boolean;
   anniversaryDate?: string;
   anniversaryTitle?: string;
   signature?: string;

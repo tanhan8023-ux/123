@@ -16,7 +16,30 @@ const fetchAiResponse = async (
   aiRef: React.MutableRefObject<GoogleGenAI | null>,
   ...args: any[]
 ) => {
-  const response = await originalFetchAiResponse(promptText, contextMessages, persona, apiSettings, worldbook, userProfile, aiRef, ...args);
+  const [enableQuote = true, additionalSystemInstructions = "", forceModel, customApiSettings, isOffline = false, imageUrl, tools, isSystemTask = false, disableActions = false, signal] = args;
+  
+  const finalDisableActions = userProfile.enableActionDescriptions === false || disableActions === true;
+  
+  const response = await originalFetchAiResponse(
+    promptText,
+    contextMessages,
+    persona,
+    apiSettings,
+    worldbook,
+    userProfile,
+    aiRef,
+    enableQuote,
+    additionalSystemInstructions,
+    forceModel,
+    customApiSettings,
+    isOffline,
+    imageUrl,
+    tools,
+    isSystemTask,
+    finalDisableActions,
+    signal
+  );
+  
   // Only learn from user messages, not system events
   if (!promptText.startsWith('[系统')) {
     await extractAndSaveMemory(promptText, response.responseText, aiRef, apiSettings);
@@ -2672,6 +2695,9 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
               <MoreHorizontal size={20} />
               {showChatSettings && (
                 <div className="absolute top-10 right-2 w-32 bg-white rounded-lg shadow-lg border border-neutral-200 py-1 z-50">
+                  <div onClick={() => setUserProfile(prev => ({ ...prev, enableActionDescriptions: !prev.enableActionDescriptions }))} className="px-4 py-2 text-[14px] text-neutral-800 flex items-center gap-2 active:bg-neutral-100 cursor-pointer">
+                    {userProfile.enableActionDescriptions !== false ? <Check size={16} /> : <div className="w-4" />} 动作描写
+                  </div>
                   <div onClick={handleOpenTheater} className="px-4 py-2 text-[14px] text-neutral-800 flex items-center gap-2 active:bg-neutral-100 cursor-pointer">
                     <Film size={16} /> 剧场
                   </div>

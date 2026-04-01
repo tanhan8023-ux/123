@@ -49,7 +49,7 @@ export async function generateLyrics(
   return responseText || "[00:00.00] 抱歉，未找到该歌曲的歌词。";
 }
 
-export async function withRetry<T>(fn: () => Promise<T>, maxRetries = 8, initialDelay = 5000): Promise<T> {
+export async function withRetry<T>(fn: () => Promise<T>, maxRetries = 12, initialDelay = 3000): Promise<T> {
   let retries = 0;
   while (true) {
     try {
@@ -435,7 +435,7 @@ export async function fetchAiResponse(
     `【用户人设】\n${userProfile.persona || '一个普通人'}`,
     `【回复规范】绝对锁定身份。拒绝客服腔。动作描写用括号包裹。严禁替用户说话。禁止在回复开头添加 [角色名] 或任何类似的前缀。`,
     additionalSystemInstructions,
-    disableActions ? "【严禁动作描写】只输出对话文字。" : ""
+    disableActions ? "【绝对禁止】严禁任何动作描写，严禁使用括号，只输出对话文字。" : ""
   ].filter(Boolean).join('\n\n');
 
   const modelName = forceModel || effectiveApiSettings.model || 'gemini-3-flash-preview';
@@ -475,9 +475,12 @@ export async function fetchAiResponse(
   }
 }
 
-export function processAiResponse(responseText: string, personaName?: string) {
+export function processAiResponse(responseText: string, personaName?: string, disableActions?: boolean) {
   if (!responseText) return "";
   let processed = responseText.replace(/\[ID:\s*[^\]]+\]/gi, '').replace(/\|\|\|/g, '').trim();
+  if (disableActions) {
+    processed = processed.replace(/\([^)]*\)/g, '').replace(/（[^）]*）/g, '').trim();
+  }
   if (personaName) {
     const prefix = `[${personaName}]:`;
     if (processed.startsWith(prefix)) {
