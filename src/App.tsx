@@ -62,10 +62,10 @@ import { WalletScreen } from './components/WalletScreen';
 import { VirtualMapScreen } from './components/VirtualMapScreen';
 import { Screen, Persona, UserProfile, ApiSettings, ThemeSettings, Message, Moment, Song, WorldbookSettings, XHSPost, TreeHolePost, TreeHoleNotification, TreeHoleMessage, Order, Playlist, DiaryEntry, Transaction, CallRecord, GroupChat } from './types';
 import { AnimatePresence, motion } from 'motion/react';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, GenerateContentResponse } from '@google/genai';
 import { storageService } from './services/storageService';
 import { getPhoneData } from './services/phoneService';
-import { fetchAiResponse, generatePersonaStatus, checkIfPersonaIsOffline, generateUserRemark, generateDiaryEntry, generateXHSPost } from './services/aiService';
+import { fetchAiResponse, generatePersonaStatus, checkIfPersonaIsOffline, generateUserRemark, generateDiaryEntry, generateXHSPost, withRetry } from './services/aiService';
 import { lyricService } from './services/lyricService';
 import { repairJson } from './utils';
 import { processAiResponseParts } from './utils/chatUtils';
@@ -76,7 +76,6 @@ export default function App() {
   const [hasApiKey, setHasApiKey] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [aiPhoneRequest, setAiPhoneRequest] = useState<{msgId: string, personaId: string} | null>(null);
-  const [phoneResponseHandler, setPhoneResponseHandler] = useState<((msgId: string, accept: boolean) => void) | null>(null);
 
   // Wallet State
   const handleRecharge = (amount: number) => {
@@ -405,6 +404,10 @@ export default function App() {
 
   // Lifted State
   const [messages, setMessages] = useState<Message[]>([]);
+  const messagesRef = useRef<Message[]>([]);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
   const lastNotifiedMsgId = useRef<string | null>(null);
 
   useEffect(() => {
@@ -751,10 +754,13 @@ export default function App() {
     const apiKey = apiSettings.apiKey?.trim() || process.env.GEMINI_API_KEY as string;
     if (apiKey) {
       try {
+        console.log("Initializing GoogleGenAI with key:", apiKey.substring(0, 4) + "...");
         aiRef.current = new GoogleGenAI({ apiKey });
       } catch (e) {
         console.error("Failed to initialize GoogleGenAI:", e);
       }
+    } else {
+      console.warn("No API Key available for GoogleGenAI initialization.");
     }
   }, [apiSettings.apiKey]);
 
@@ -763,16 +769,16 @@ export default function App() {
     if (!isReady) return;
     
     const syncAllMessages = async () => {
-      try {
-        const personaIds = personas.map(p => p.id);
-        if (personaIds.length === 0) return;
+      const personaIds = personas.map(p => p.id);
+      if (personaIds.length === 0) return;
 
-        for (const personaId of personaIds) {
-          if (!personaId) continue;
+      for (const personaId of personaIds) {
+        if (!personaId) continue;
+        try {
           const personaMsgs = messages.filter(m => m.personaId === personaId).sort((a, b) => b.createdAt - a.createdAt);
           const lastTimestamp = personaMsgs.length > 0 ? personaMsgs[0].createdAt : 0;
           
-          const response = await fetch(`/api/messages/${personaId}?lastTimestamp=${lastTimestamp}`);
+          const response = await fetch(`/api/messages/${encodeURIComponent(personaId)}?lastTimestamp=${lastTimestamp}`);
           if (response.ok) {
             const text = await response.text();
             let serverMsgs;
@@ -780,7 +786,7 @@ export default function App() {
               serverMsgs = JSON.parse(text);
             } catch (e) {
               console.error("Failed to parse JSON for persona:", personaId, "Response:", text);
-              throw new Error(`Failed to parse JSON for persona: ${personaId}. Response: ${text.substring(0, 100)}`);
+              continue;
             }
             if (serverMsgs.length > 0) {
               setMessages(prev => {
@@ -800,13 +806,18 @@ export default function App() {
               });
             }
           }
+        } catch (e: any) {
+          // Ignore standard network errors like "Failed to fetch" to avoid console spam during dev server restarts
+          if (e instanceof TypeError && e.message?.includes('Failed to fetch')) {
+            // Silently ignore
+          } else {
+            console.error(`Failed to sync messages for persona ${personaId}:`, e);
+          }
         }
-      } catch (e) {
-        console.error("Failed to sync all messages:", e);
       }
     };
 
-    const interval = setInterval(syncAllMessages, 30000); // Increased to 30 seconds
+    const interval = setInterval(syncAllMessages, 60000 + Math.random() * 10000); // Increased to 60 seconds + jitter
     syncAllMessages();
     
     return () => clearInterval(interval);
@@ -837,8 +848,8 @@ export default function App() {
       } catch (e) {
         console.error("Failed to generate background XHS post:", e);
       }
-    }, 5 * 60 * 1000); // Check every 5 minutes instead of 1
-
+    }, 10 * 60 * 1000 + Math.random() * 60000); // Check every 10 minutes + jitter instead of 5
+    
     return () => clearInterval(interval);
   }, [isReady, hasApiKey, apiSettings.isAutoXhsEnabled]); // Reduced dependencies to avoid frequent restarts
 
@@ -1646,8 +1657,14 @@ export default function App() {
           waitTime += 500;
           // If a new request was triggered while waiting, abort this one
           if (aiResponseTimeouts.current[personaId] !== currentTimeoutId) {
+            console.log('AI response aborted: new message received while waiting for user to finish typing');
             return;
           }
+        }
+        // Safety reset if stuck
+        if (waitTime >= 10000) {
+          console.warn("User typing wait timeout reached, proceeding with AI response.");
+          (window as any).isUserTyping = false;
         }
 
         // Mark user messages as read since AI is now "reading" them
@@ -1686,7 +1703,7 @@ export default function App() {
 
         const isCheckingPhoneUserTrigger = /查我手机|查岗|看我手机|查手机/.test(text) && msgType === 'text';
         
-        let promptText = msgType === 'transfer' ? `[系统提示：用户向你转账了 ${amount} 元${transferNote ? `，备注是：“${transferNote}”` : ''}。你可以选择收下并回复，或者如果你想退还，请在回复中包含 [REFUND: 金额, 备注]。如果你想主动发起收款，请包含 [REQUEST: 金额, 备注]。如果你想主动转账给用户，请包含 [TRANSFER: 金额, 备注]。请作出符合你人设的反应]` : 
+        let promptText = msgType === 'transfer' ? `[系统提示：用户向你转账了 ${amount} 元${transferNote ? `，备注是：“${transferNote}”` : ''}。这笔钱已经实时进入了你的虚拟钱包余额。你可以选择收下并回复，或者如果你想退还，请在回复中包含 [REFUND: 金额, 备注]。如果你想主动发起收款，请包含 [REQUEST: 金额, 备注]。如果你想主动转账给用户，请包含 [TRANSFER: 金额, 备注]。请作出符合你人设的反应，不要说没收到，因为系统已经确认入账。]` : 
                            msgType === 'relativeCard' ? `[系统提示：用户赠送了你一张亲属卡，额度为 ${relativeCard?.limit} 元。请作出符合你人设的反应。]` :
                            msgType === 'sticker' ? `[系统提示：用户发送了一个表情包。你可以选择回复文字，或者如果你也想发表情包，请包含 [STICKER: 表情名称]（可用表情：${allStickers}）。请作出符合你人设的反应。]` :
                            msgType === 'listenTogether' ? `[系统提示：用户邀请你“一起听歌”。请表现出开心和期待，可以问问用户想听什么，或者推荐一首你喜欢的歌。]` :
@@ -1698,7 +1715,7 @@ export default function App() {
 
         // Add phone checking instructions if triggered
         if (isCheckingPhoneUserTrigger || text.includes('[系统提示：用户允许了你查看TA的手机。]')) {
-          const recentMsgs = messages.slice(-10).map(m => `${m.role === 'user' ? '用户' : 'AI'}: ${m.text}`).join('\n');
+          const recentMsgs = messagesRef.current.slice(-10).map(m => `${m.role === 'user' ? '用户' : 'AI'}: ${m.text}`).join('\n');
           additionalSystemInstructions += `\n\n【沉浸感查岗规则 - 必读】
 1. 你现在正在“看”用户的手机。你可以自由发挥，合理“虚构”你在TA手机里看到的内容（例如：和其他人的聊天记录、搜索记录、相册照片、外卖订单等），以此来和用户进行沉浸式的互动或“找茬”。
 2. ⚠️ 绝对禁止虚构不存在的App！只能提及现实中真实存在且常用的App（如：微信、抖音、淘宝、美团、小红书等），或者使用通用词汇（如：相册、浏览器、备忘录）。
@@ -1726,13 +1743,13 @@ ${recentMsgs}`;
           promptText = text;
         } else {
            // Main chat mode: Inject memories from theaters
-           const playedTheaters = Array.from(new Set(messages.filter(m => m.personaId === personaId && m.theaterId).map(m => m.theaterId)));
+           const playedTheaters = Array.from(new Set(messagesRef.current.filter(m => m.personaId === personaId && m.theaterId).map(m => m.theaterId)));
            let memoryText = '';
            if (playedTheaters.length > 0) {
              memoryText = `\n【平行世界记忆（剧场模式）】\n你和用户在平行世界（剧场模式）中共同经历了以下剧本的故事：${playedTheaters.join('、')}。\n这些是你们共同的珍贵回忆。虽然现在的对话发生在现实世界（微信聊天），但如果用户提起这些剧场里的事情，请带着那份情感和记忆进行回应，不要假装不知道。但在用户未提及时，请保持当前的现实人设，不要主动混淆现实与剧场。`;
            }
            
-           additionalSystemInstructions += `\n【功能提示】你可以随时使用 [STICKER: 任意描述] 来发送表情包（例如 [STICKER: 开心的猫]）。${memoryText}`;
+           additionalSystemInstructions += `\n【功能提示】你可以随时使用 [STICKER: 任意描述] 来发送表情包（例如 [STICKER: 开心的猫]）。${memoryText}\n【主动查岗机制】你可以根据你的人设、当前的心情（特别是吃醋、怀疑、不安时）以及聊天情景，主动要求查看用户的手机。如果你想查岗，请在回复中包含 [ACTION:CHECK_PHONE] 标签。这会在用户端弹出一个请求查看手机的界面。`;
         }
 
         // Add music context if playing
@@ -1740,7 +1757,15 @@ ${recentMsgs}`;
           additionalSystemInstructions += `\n[当前场景：用户正在和你一起听歌。当前播放：${songs[currentSongIndex].title} - ${songs[currentSongIndex].artist}。请结合歌曲氛围进行回复。]`;
         }
 
-        const latestMessages = messages.filter(m => m.personaId === personaId && !m.groupId && m.theaterId === theaterId).slice(-50);
+        const latestMessages = messagesRef.current.filter(m => m.personaId === personaId && !m.groupId && m.theaterId === theaterId).slice(-50);
+        
+        // Ensure the current user message is in the history if it's missing (due to state update lag)
+        if (userMsgId && !latestMessages.some(m => m.id === userMsgId)) {
+          const currentMsg = messagesRef.current.find(m => m.id === userMsgId);
+          if (currentMsg) {
+            latestMessages.push(currentMsg);
+          }
+        }
         
         let currentImageUrl = undefined;
         if (msgType === 'image' && imageUrl) {
@@ -1753,7 +1778,7 @@ ${recentMsgs}`;
                    m.msgType === 'transfer' ? (
                      m.role === 'user' ? 
                        `用户向你转账了 ${m.amount} 元${m.transferNote ? `，备注是：“${m.transferNote}”` : ''}` :
-                       `我向用户转账了 ${m.amount} 元${m.transferNote ? `，备注是：“${m.transferNote}”` : ''}`
+                       (m.isReceived ? `我收到了用户的转账 ${m.amount} 元` : `我向用户转账了 ${m.amount} 元${m.transferNote ? `，备注是：“${m.transferNote}”` : ''}`)
                    ) : 
                    m.msgType === 'relativeCard' ? (
                      m.role === 'user' ?
@@ -1913,7 +1938,73 @@ ${recentMsgs}`;
         pendingAiCallbacks.current[personaId]();
       }
     }, delay);
-  }, [personas, messages, apiSettings, worldbook, userProfile, subscriptionId, songs, currentSongIndex, listeningWithPersonaId]);
+  }, [personas, apiSettings, worldbook, userProfile, subscriptionId, songs, currentSongIndex, listeningWithPersonaId]);
+
+  const handleCheckPhoneResponse = React.useCallback((msgId: string, personaId: string, accept: boolean) => {
+    if (msgId !== 'proactive') {
+      setMessages(prev => prev.map(m => 
+        m.id === msgId ? { ...m, checkPhoneStatus: accept ? 'accepted' : 'rejected' } : m
+      ));
+    } else if (accept) {
+      const userMsg: Message = {
+        id: generateId(),
+        personaId: personaId,
+        role: 'user',
+        text: '[我主动把手机递给了你，让你查看内容]',
+        msgType: 'system',
+        timestamp: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }),
+        isRead: true,
+        createdAt: Date.now()
+      };
+      setMessages(prev => [...prev, userMsg]);
+    }
+    
+    const targetPersona = personas.find(p => p.id === personaId);
+    if (accept && targetPersona) {
+      const phoneData = getPhoneData(personas, messages, userProfile, orders, moments, personaId);
+      const systemPrompt = `[系统提示：用户允许了你查看TA的手机。
+你现在正在“翻看”用户的手机，以下是你真实看到的手机内容：
+${phoneData}
+
+【查岗规则 - 必须遵守】
+1. **真实性第一**：你必须基于上面提供的【手机实时数据快照】进行质问或评论。严禁虚构不存在的聊天、转账或App内容。
+2. **细节控**：关注细节，比如“为什么昨天晚上花了这么多钱？”、“为什么你点的外卖是双人份的？”。
+3. **沉浸感**：使用 [ACTION:IMAGE:描述] 标签生成一张你看到的“证据”截图（例如：[ACTION:IMAGE:一张微信聊天截图，显示用户给某人转账的记录]），然后发给用户并直接质问。
+4. **人设统一**：保持你原本的人设性格，但在此基础上增加“查岗”时的真实反应。
+5. **严禁幻视**：如果数据中没有显示某项内容，绝对不要凭空捏造。如果没有发现问题，可以表现出暂时的放心，但仍保持警惕。]`;
+      
+      const userMsgId = generateId();
+      const userMsg: Message = {
+        id: userMsgId,
+        personaId: personaId,
+        role: 'user',
+        text: systemPrompt,
+        msgType: 'system',
+        timestamp: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }),
+        isRead: true,
+        createdAt: Date.now(),
+        hidden: true
+      };
+      setMessages(prev => [...prev, userMsg]);
+      triggerAiResponse({ personaId, text: systemPrompt, msgType: 'system', userMsgId });
+    } else if (targetPersona) {
+      const systemPrompt = "[系统提示：用户拒绝了你查看TA手机的请求。请根据你的人设作出反应（例如：生气、怀疑、撒娇等）。]";
+      const userMsgId = generateId();
+      const userMsg: Message = {
+        id: userMsgId,
+        personaId: personaId,
+        role: 'user',
+        text: systemPrompt,
+        msgType: 'system',
+        timestamp: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }),
+        isRead: true,
+        createdAt: Date.now(),
+        hidden: true
+      };
+      setMessages(prev => [...prev, userMsg]);
+      triggerAiResponse({ personaId, text: systemPrompt, msgType: 'system', userMsgId });
+    }
+  }, [personas, messages, userProfile, orders, moments, triggerAiResponse]);
 
   // Automatic phone check
   useEffect(() => {
@@ -1930,7 +2021,7 @@ ${phoneData}
 
 【监控规则】
 1. 基于你的人设、心情和当前情景，分析这些数据。
-2. 如果你认为用户有可疑行为（如暧昧聊天、异常转账、隐瞒行程等），或者你的人设决定你需要控制用户，你可以决定锁定手机。
+2. 如果你认为用户有异常行为（如异常大额转账、隐瞒行程等），或者你的人设决定你需要控制用户，你可以决定锁定手机。
 3. 如果决定锁定，请在回复中包含 [ACTION:LOCK]。
 4. 无论是否锁定，请根据你的心情和分析结果，给用户发一条简短的、符合人设的评论或质问。]`;
 
@@ -1956,10 +2047,76 @@ ${phoneData}
       } catch (error) {
         console.error("Automatic phone check error:", error);
       }
-    }, 5 * 60 * 1000); // 5 minutes
-
+    }, 10 * 60 * 1000 + Math.random() * 60000); // 10 minutes + jitter
+    
     return () => clearInterval(intervalId);
   }, [listeningWithPersonaId, isLocked, personas, messages, userProfile, orders, moments, apiSettings, worldbook, aiRef]);
+
+  // Proactive phone check request
+  useEffect(() => {
+    if (!currentChatId || currentScreen !== 'chat' || isLocked || !aiRef.current) return;
+
+    const persona = personas.find(p => p.id === currentChatId);
+    if (!persona || persona.isBlockedByUser || persona.isOffline) return;
+
+    const checkPhoneProactively = async () => {
+      // 1. Check if AI has asked recently (e.g., within last 5 minutes)
+      const lastAskTime = localStorage.getItem(`lastPhoneCheck_${persona.id}`);
+      if (lastAskTime && Date.now() - parseInt(lastAskTime) < 5 * 60 * 1000) {
+        return;
+      }
+
+      // 2. Determine if AI *wants* to check based on mood/context
+      const prompt = `[系统提示：你现在是 ${persona.name}。
+你当前的心情是：${persona.mood || '平静'}。
+你当前的情景是：${persona.context || '日常'}。
+
+基于你的人设、当前的心情和情景，你现在是否想主动要求查看用户的手机？
+如果你（比如因为吃醋、怀疑、或者强烈的控制欲）想查手机，请回复 "YES"。
+如果你现在不想查手机，请回复 "NO"。
+只回复 "YES" 或 "NO"。]`;
+
+      try {
+        const response = await withRetry<GenerateContentResponse>(() => aiRef.current!.models.generateContent({
+          model: 'gemini-3-flash-preview',
+          contents: prompt,
+        }));
+        const text = response.text?.trim().toUpperCase();
+        
+        if (text === 'YES') {
+          // AI wants to check!
+          localStorage.setItem(`lastPhoneCheck_${persona.id}`, Date.now().toString());
+          
+          // Generate a specific request message
+          const requestPrompt = `[系统提示：你决定要查看用户的手机。请根据你的人设、心情（${persona.mood}）和情景（${persona.context}），用一句话向用户提出查看手机的要求。语气要符合你的人设。]`;
+          const requestResponse = await withRetry<GenerateContentResponse>(() => aiRef.current!.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: requestPrompt,
+          }));
+          
+          const aiMsg: Message = {
+            id: generateId(),
+            personaId: persona.id,
+            role: 'model',
+            text: requestResponse.text || "我想看看你的手机。",
+            msgType: 'checkPhoneRequest',
+            checkPhoneStatus: 'pending',
+            timestamp: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }),
+            createdAt: Date.now(),
+            isRead: true
+          };
+          setMessages(prev => [...prev, aiMsg]);
+          setAiPhoneRequest({ personaId: persona.id, msgId: aiMsg.id });
+        }
+      } catch (error) {
+        console.error("Error checking proactive phone request:", error);
+      }
+    };
+
+    // Check every 10 minutes instead of 5 to avoid rate limits
+    const intervalId = setInterval(checkPhoneProactively, 10 * 60 * 1000 + Math.random() * 30000);
+    return () => clearInterval(intervalId);
+  }, [currentChatId, currentScreen, isLocked, personas, apiSettings]);
 
   const handleSendMessage = React.useCallback(async (text: string, personaId: string) => {
     
@@ -3056,7 +3213,7 @@ ${phoneData}
                   <ChatScreen 
                     isActive={currentScreen === 'chat'}
                     setAiPhoneRequest={setAiPhoneRequest}
-                    setPhoneResponseHandler={setPhoneResponseHandler}
+                    onCheckPhoneResponse={handleCheckPhoneResponse}
                     typingPersonas={typingPersonas}
                     triggerAiResponse={triggerAiResponse}
                     unreadCount={unreadCount}
@@ -3157,8 +3314,8 @@ ${phoneData}
               <div className="flex gap-4 w-full pt-4">
                 <button
                   onClick={() => {
-                    if (phoneResponseHandler && aiPhoneRequest) {
-                      phoneResponseHandler(aiPhoneRequest.msgId, false);
+                    if (aiPhoneRequest) {
+                      handleCheckPhoneResponse(aiPhoneRequest.msgId, aiPhoneRequest.personaId, false);
                     }
                     setAiPhoneRequest(null);
                   }}
@@ -3168,8 +3325,8 @@ ${phoneData}
                 </button>
                 <button
                   onClick={() => {
-                    if (phoneResponseHandler && aiPhoneRequest) {
-                      phoneResponseHandler(aiPhoneRequest.msgId, true);
+                    if (aiPhoneRequest) {
+                      handleCheckPhoneResponse(aiPhoneRequest.msgId, aiPhoneRequest.personaId, true);
                     }
                     setAiPhoneRequest(null);
                   }}

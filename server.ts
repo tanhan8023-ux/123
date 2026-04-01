@@ -1,6 +1,6 @@
 import express from "express";
 import { createServer as createViteServer } from "vite";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import dotenv from "dotenv";
 import fetch from "node-fetch";
 import Database from "better-sqlite3";
@@ -26,16 +26,30 @@ function generateId() {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
-async function withRetry<T>(fn: () => Promise<T>, maxRetries = 5, initialDelay = 3000): Promise<T> {
-  try {
-    return await fn();
-  } catch (error: any) {
-    if (maxRetries <= 0 || (error.status !== 429 && !error.message?.toLowerCase().includes('rate limit'))) {
+async function withRetry<T>(fn: () => Promise<T>, maxRetries = 8, initialDelay = 5000): Promise<T> {
+  let retries = 0;
+  while (true) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      const errorMsg = error.message?.toLowerCase() || "";
+      const isRateLimit = errorMsg.includes('rate limit') || 
+                          errorMsg.includes('quota') ||
+                          errorMsg.includes('429') ||
+                          errorMsg.includes('exhausted') ||
+                          error.status === 429 ||
+                          (error.response?.status === 429) ||
+                          (typeof error.message === 'string' && error.message.includes('429'));
+      
+      if (isRateLimit && retries < maxRetries) {
+        retries++;
+        const delay = initialDelay * Math.pow(2, retries - 1) + Math.random() * 1000;
+        console.warn(`Rate limit hit, retrying in ${Math.round(delay)}ms... (Attempt ${retries}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
       throw error;
     }
-    console.warn(`Rate limit hit, retrying in ${initialDelay}ms...`);
-    await new Promise(resolve => setTimeout(resolve, initialDelay));
-    return withRetry(fn, maxRetries - 1, initialDelay * 2);
   }
 }
 
@@ -53,22 +67,26 @@ async function startServer() {
   
   // Get messages from server
   app.get("/api/messages/:personaId", (req, res) => {
-    const { personaId } = req.params;
-    const { lastTimestamp } = req.query;
-    console.log(`API Request: /api/messages/${personaId}, lastTimestamp: ${lastTimestamp}`);
-    
-    let query = "SELECT * FROM messages WHERE personaId = ?";
-    const params = [personaId];
-    
-    if (lastTimestamp) {
-      query += " AND createdAt > ?";
-      params.push(lastTimestamp as string);
+    try {
+      const { personaId } = req.params;
+      const { lastTimestamp } = req.query;
+      
+      let query = "SELECT * FROM messages WHERE personaId = ?";
+      const params: any[] = [personaId];
+      
+      if (lastTimestamp) {
+        query += " AND createdAt > ?";
+        params.push(Number(lastTimestamp));
+      }
+      
+      query += " ORDER BY createdAt ASC";
+      
+      const rows = db.prepare(query).all(...params);
+      res.json(rows);
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
-    
-    query += " ORDER BY createdAt ASC";
-    
-    const rows = db.prepare(query).all(...params);
-    res.json(rows);
   });
 
   app.post("/api/chat", async (req, res) => {
@@ -85,13 +103,17 @@ async function startServer() {
       messageId // Client-side generated ID for the user message
     } = req.body;
 
-    // Save user message to DB if it doesn't exist
-    if (messageId && persona?.id) {
-      const existing = db.prepare("SELECT id FROM messages WHERE id = ?").get(messageId);
-      if (!existing) {
-        db.prepare("INSERT INTO messages (id, personaId, role, text, timestamp, createdAt) VALUES (?, ?, ?, ?, ?, ?)")
-          .run(messageId, persona.id, 'user', message, new Date().toLocaleTimeString(), Date.now());
+    try {
+      // Save user message to DB if it doesn't exist
+      if (messageId && persona?.id) {
+        const existing = db.prepare("SELECT id FROM messages WHERE id = ?").get(messageId);
+        if (!existing) {
+          db.prepare("INSERT INTO messages (id, personaId, role, text, timestamp, createdAt) VALUES (?, ?, ?, ?, ?, ?)")
+            .run(messageId, persona.id, 'user', message, new Date().toLocaleTimeString(), Date.now());
+        }
       }
+    } catch (dbError) {
+      console.error("Database error in /api/chat:", dbError);
     }
 
     // Return immediately to the client so they don't wait
@@ -103,11 +125,13 @@ async function startServer() {
       const envKey = process.env.GEMINI_API_KEY;
       const apiKey = settingsKey || envKey;
 
-      if (!apiKey) return;
+      if (!apiKey) {
+        console.error("[Background AI Error]: No API key found.");
+        return;
+      }
 
       try {
         const modelName = forceModel || apiSettings?.model || 'gemini-3-flash-preview';
-        const ai = new GoogleGenAI({ apiKey });
         const now = new Date();
         const timeString = now.toLocaleString('zh-CN');
 
@@ -122,28 +146,72 @@ async function startServer() {
           additionalSystemInstructions || ""
         ].filter(Boolean).join('\n\n');
 
-        const contents = history.map((m: any) => ({
-          role: m.role === 'model' || m.role === 'assistant' ? 'model' : 'user',
-          parts: [{ text: m.content || m.text || '' }]
-        }));
-        contents.push({ role: 'user', parts: [{ text: message || '' }] });
+        let cleanedText = "";
 
-        const response = await withRetry(() => ai.models.generateContent({
-          model: modelName,
-          contents,
-          config: {
-            systemInstruction: fullSystemInstruction,
-            temperature: apiSettings?.temperature || 0.7,
+        if (apiSettings?.apiUrl) {
+          // --- OpenAI Compatible Call ---
+          let endpoint = apiSettings.apiUrl;
+          if (!endpoint.endsWith('/chat/completions') && !endpoint.endsWith('/v1/messages')) {
+            endpoint = endpoint.endsWith('/') ? `${endpoint}chat/completions` : `${endpoint}/chat/completions`;
           }
-        }));
 
-        const responseText = response.text || "";
-        const cleanedText = responseText.replace(/\[ID:\s*[^\]]+\]/gi, '').replace(/\|\|\|/g, '').trim();
+          const messages = history.map((m: any) => ({
+            role: m.role === 'model' || m.role === 'assistant' ? 'assistant' : 'user',
+            content: m.content || m.text || ''
+          }));
+          messages.unshift({ role: 'system', content: fullSystemInstruction });
+          messages.push({ role: 'user', content: message || '' });
+
+          const response = await withRetry(() => fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+              model: modelName,
+              messages,
+              temperature: apiSettings?.temperature || 0.7,
+              stream: false
+            })
+          }));
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({})) as any;
+            throw new Error(errorData.error?.message || `API Error: ${response.status}`);
+          }
+          const data = await response.json() as any;
+          cleanedText = data.choices?.[0]?.message?.content || "";
+        } else {
+          // --- Native Gemini Call ---
+          const ai = new GoogleGenAI({ apiKey });
+          const contents = history.map((m: any) => ({
+            role: m.role === 'model' || m.role === 'assistant' ? 'model' : 'user',
+            parts: [{ text: m.content || m.text || '' }]
+          }));
+          contents.push({ role: 'user', parts: [{ text: message || '' }] });
+
+          const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
+            model: modelName,
+            contents,
+            config: {
+              systemInstruction: fullSystemInstruction,
+              temperature: apiSettings?.temperature || 0.7,
+            }
+          }));
+
+          const responseText = response.text || "";
+          cleanedText = responseText.replace(/\[ID:\s*[^\]]+\]/gi, '').replace(/\|\|\|/g, '').trim();
+        }
 
         // Save AI response to DB
-        if (persona?.id) {
-          db.prepare("INSERT INTO messages (id, personaId, role, text, timestamp, createdAt) VALUES (?, ?, ?, ?, ?, ?)")
-            .run(generateId(), persona.id, 'model', cleanedText, new Date().toLocaleTimeString(), Date.now());
+        try {
+          if (persona?.id) {
+            db.prepare("INSERT INTO messages (id, personaId, role, text, timestamp, createdAt) VALUES (?, ?, ?, ?, ?, ?)")
+              .run(generateId(), persona.id, 'model', cleanedText, new Date().toLocaleTimeString(), Date.now());
+          }
+        } catch (dbError) {
+          console.error("Database error saving AI response:", dbError);
         }
 
         // Send Push Notification

@@ -3,7 +3,8 @@ import { X, Cpu, HardDrive, Wifi, Battery, Search, MessageSquare, Lock, Terminal
 import { Persona, Message, UserProfile, ApiSettings, WorldbookSettings, DiaryEntry, ThemeSettings } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, GenerateContentResponse } from '@google/genai';
+import { withRetry } from '../services/aiService';
 
 interface AiPhoneModalProps {
   persona: Persona;
@@ -224,66 +225,16 @@ export function AiPhoneModal({ persona, onClose, onUpdatePersona, allMessages, o
     };
   }, [persona, userProfile, allMessages]);
 
-  const [isChecking, setIsChecking] = useState(false);
-  const [showConfirmCheck, setShowConfirmCheck] = useState(false);
-  const [showAiRequestPopup, setShowAiRequestPopup] = useState(false);
-  const [aiRequestMessage, setAiRequestMessage] = useState("");
   const [isLocked, setIsLocked] = useState(false);
   const [isMonitoringEnabled, setIsMonitoringEnabled] = useState(persona.aiPhoneSettings?.isMonitoringEnabled || false);
 
-  useEffect(() => {
-    // 1. Check if the AI recently asked to check the phone in the chat
-    const lastAiMessage = [...allMessages]
-      .reverse()
-      .find(m => m.personaId === persona.id && !m.groupId && !m.theaterId && !m.hidden);
-    
-    const aiAskedRecently = lastAiMessage && 
-      (lastAiMessage.text.includes('手机') || lastAiMessage.text.includes('查')) &&
-      (Date.now() - new Date(lastAiMessage.createdAt || Date.now()).getTime() < 60000); // within last minute
+  const lastThoughtTime = useRef<number>(0);
 
-    if (aiAskedRecently) {
-      setAiRequestMessage(lastAiMessage.text);
-      setShowAiRequestPopup(true);
-      return; // Don't start the proactive timer if it already asked
-    }
+  const generateAiThought = async (screen: AppScreen, contacts: any[], messages: any[], notes: any[], wallet: any[]) => {
+      // Cooldown of 10 seconds to avoid rate limits
+      if (Date.now() - lastThoughtTime.current < 10000) return;
+      lastThoughtTime.current = Date.now();
 
-    // 2. Proactively request to check phone based on mood/persona
-    const mood = persona.mood || '';
-    const isSuspiciousMood = mood.includes('疑') || mood.includes('醋') || mood.includes('不安') || mood.includes('难过');
-    
-    // Base delay 3-8s, much shorter for better responsiveness
-    const baseDelay = isSuspiciousMood ? 2000 : 5000;
-    const randomDelay = Math.floor(Math.random() * 5000);
-    
-    const checkTimer = setTimeout(async () => {
-      const apiKey = apiSettings.apiKey?.trim() || process.env.GEMINI_API_KEY as string;
-      if (!apiKey) return;
-
-      try {
-        const ai = new GoogleGenAI({ apiKey });
-        const requestPrompt = `你现在是 ${persona.name}。当前你的心情是：${persona.mood || '正常'}，背景是：${persona.context || '日常'}。
-        你想查看用户的手机。请根据你的人设和当前心情，写一句你想对用户说的话，来请求查看他的手机。
-        如果是吃醋的心情，语气要酸一点；如果是撒娇的心情，语气要软一点。
-        只返回这句话，不要有其他内容。`;
-
-        const response = await ai.models.generateContent({
-          model: 'gemini-3-flash-preview',
-          contents: requestPrompt,
-        });
-        
-        setAiRequestMessage(response.text || "我可以看看你的手机吗？");
-        setShowAiRequestPopup(true);
-      } catch (e) {
-        console.error("Failed to generate AI request message:", e);
-        setAiRequestMessage("我可以看看你的手机吗？");
-        setShowAiRequestPopup(true);
-      }
-    }, baseDelay + randomDelay);
-
-    return () => clearTimeout(checkTimer);
-  }, [persona.mood, persona.context, apiSettings.apiKey, allMessages.length]);
-
-  const generateAiThought = async (screen: AppScreen, contacts: any[], messages: any[], notes: any[], wallet: any[], manualCheck = false) => {
       const apiKey = apiSettings.apiKey?.trim() || process.env.GEMINI_API_KEY as string;
       if (!apiKey) return;
       
@@ -294,92 +245,15 @@ export function AiPhoneModal({ persona, onClose, onUpdatePersona, allMessages, o
         console.error("Failed to initialize GoogleGenAI:", e);
         return;
       }
-    
-    if (manualCheck) {
-        setIsChecking(true);
-    } else if (!isMonitoringEnabled) {
-        // 2. Generate normal thought
-        const prompt = `你现在是 ${persona.name}，用户正在查看你的手机中的 ${screen} 页面。请用一句话简短地表达你此时的想法或心情，语气要符合你的人设。`;
-        
-        try {
-          const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
-            contents: prompt,
-          });
-          setAiThought(response.text || "...");
-          setShowThought(true);
-          setTimeout(() => setShowThought(false), 5000);
-        } catch (e) {
-          console.error("Failed to generate AI thought:", e);
-        }
-        return;
-    }
 
-    // 1. Analyze for suspicious activity (Cheating, Spending, Secrets, etc.)
-    const analysisPrompt = `你现在是 ${persona.name}。请深度分析以下手机数据，判断是否存在任何让你不爽、怀疑或觉得有问题的行为。
-    分析维度：
-    1. 情感忠诚：是否有暧昧备注、不清白的聊天记录、深夜通话等。
-    2. 财务状况：是否有大额异常支出（如酒店、奢侈品、520/1314转账）、频繁给异性转账等。
-    3. 秘密隐瞒：备忘录里是否有奇怪的密码、日程、或者是对你的吐槽。
-    
-    数据：
-    联系人：${JSON.stringify(contacts)}
-    聊天记录：${JSON.stringify(messages)}
-    备忘录：${JSON.stringify(notes)}
-    消费记录：${JSON.stringify(wallet)}
-    
-    如果发现任何问题，请返回一个 JSON 对象：
-    { 
-      "isSuspicious": true, 
-      "problemType": "cheating" | "spending" | "secrets" | "other",
-      "targetName": "...", // 如果是人，写名字；如果是事，写摘要
-      "reason": "...", // 你发现的具体证据和你的心理活动
-      "firstMessage": "..." // 你发现问题后，第一句质问用户的话（要符合人设）
-    }
-    如果没有问题，返回 { "isSuspicious": false }。
-    只返回 JSON，不要有其他内容。`;
-
-    try {
-      const analysisResponse = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: analysisPrompt,
-        config: { responseMimeType: 'application/json' }
-      });
-      
-      const analysis = JSON.parse(analysisResponse.text || '{}');
-      if (analysis.isSuspicious) {
-        // Trigger confrontation immediately
-        const groupName = analysis.problemType === 'cheating' 
-          ? `对峙：${persona.name} vs ${analysis.targetName}`
-          : `质问：${persona.name} 的怀疑`;
-          
-        // Find member ID for third party if applicable
-        const targetContact = contacts.find(c => c.name === analysis.targetName);
-        const memberIds = ['user', persona.id];
-        if (targetContact) {
-            memberIds.push(targetContact.id.toString());
-        }
-        
-        onCreateGroup(groupName, memberIds);
-        onSendMessageAsAi(analysis.firstMessage);
-        setIsLocked(true); // Lock the phone
-        setIsChecking(false);
-        return;
-      }
-    } catch (e) {
-      console.error("Failed to analyze phone data:", e);
-    }
-
-    setIsChecking(false);
-
-    // 2. Generate normal thought
+    // Generate normal thought
     const prompt = `你现在是 ${persona.name}，用户正在查看你的手机中的 ${screen} 页面。请用一句话简短地表达你此时的想法或心情，语气要符合你的人设。`;
     
     try {
-      const response = await ai.models.generateContent({
+      const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: prompt,
-      });
+      }));
       setAiThought(response.text || "...");
       setShowThought(true);
       setTimeout(() => setShowThought(false), 5000);
@@ -907,38 +781,6 @@ export function AiPhoneModal({ persona, onClose, onUpdatePersona, allMessages, o
             </div>
             <ChevronLeft size={18} className="text-gray-300 rotate-180" />
           </button>
-          
-          <div className="p-4 mt-4">
-            <button 
-              onClick={async () => {
-                const apiKey = apiSettings.apiKey?.trim() || process.env.GEMINI_API_KEY as string;
-                if (!apiKey) return;
-                setIsChecking(true);
-                try {
-                  const ai = new GoogleGenAI({ apiKey });
-                  const requestPrompt = `你现在是 ${persona.name}。用户主动请求你检查他的手机。请根据你的人设和当前心情，写一句你想对用户说的话。只返回这句话。`;
-                  const response = await ai.models.generateContent({
-                    model: 'gemini-3-flash-preview',
-                    contents: requestPrompt,
-                  });
-                  setAiRequestMessage(response.text || "既然你主动要求，那我就看看吧...");
-                  setShowAiRequestPopup(true);
-                } catch (e) {
-                  console.error(e);
-                  setShowAiRequestPopup(true);
-                } finally {
-                  setIsChecking(false);
-                }
-              }}
-              className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg shadow-indigo-200 active:scale-95 transition-transform flex items-center justify-center gap-2"
-            >
-              <Search size={20} />
-              请求 AI 深度检查
-            </button>
-            <p className="text-[10px] text-gray-400 mt-2 text-center">
-              AI 也会根据心情和聊天内容随机主动发起检查
-            </p>
-          </div>
 
           {[
             { icon: <Cpu className="text-white" />, label: "处理器负载", value: "0.002%", color: "bg-blue-500" },
@@ -1131,59 +973,6 @@ export function AiPhoneModal({ persona, onClose, onUpdatePersona, allMessages, o
 
         {/* Screen Content */}
         <div className="flex-1 relative overflow-hidden bg-black">
-          {/* Proactive AI Request Popup (Cross-page) */}
-          <AnimatePresence>
-            {showAiRequestPopup && (
-              <motion.div 
-                initial={{ scale: 0.8, opacity: 0, y: 20 }}
-                animate={{ scale: 1, opacity: 1, y: 0 }}
-                exit={{ scale: 0.8, opacity: 0, y: 20 }}
-                className="absolute inset-x-4 top-1/2 -translate-y-1/2 z-[100] bg-white/95 backdrop-blur-xl p-6 rounded-[2rem] shadow-2xl border border-white/20 text-center"
-              >
-                <div className="w-16 h-16 bg-indigo-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                  <Smartphone className="text-indigo-600" size={32} />
-                </div>
-                <h3 className="text-lg font-bold text-black mb-2">{persona.name} 想查看你的手机</h3>
-                <p className="text-sm text-gray-600 mb-6">{aiRequestMessage || "“我可以看看你的手机吗？就一下下...”"}</p>
-                <div className="flex gap-3">
-                  <button 
-                    onClick={() => setShowAiRequestPopup(false)}
-                    className="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl font-bold active:scale-95 transition-transform"
-                  >
-                    拒绝
-                  </button>
-                  <button 
-                    onClick={() => {
-                      setShowAiRequestPopup(false);
-                      generateAiThought(activeScreen, contacts, messages, notes, wallet, true);
-                    }}
-                    className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 active:scale-95 transition-transform"
-                  >
-                    同意
-                  </button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Checking Overlay */}
-          <AnimatePresence>
-            {isChecking && (
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="absolute inset-0 z-[110] bg-black/60 backdrop-blur-sm flex items-center justify-center p-6 text-center"
-              >
-                <div className="bg-white p-8 rounded-[2.5rem] shadow-2xl">
-                  <Loader2 className="w-12 h-12 text-indigo-600 animate-spin mx-auto mb-4" />
-                  <h3 className="text-xl font-bold text-black mb-2">正在检查...</h3>
-                  <p className="text-sm text-gray-500">AI 正在深入分析手机数据，请稍候。</p>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
           {activeScreen === 'home' && (
             <div 
               className="absolute inset-0 bg-cover bg-center transition-all duration-500"

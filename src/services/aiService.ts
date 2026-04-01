@@ -49,7 +49,7 @@ export async function generateLyrics(
   return responseText || "[00:00.00] 抱歉，未找到该歌曲的歌词。";
 }
 
-async function withRetry<T>(fn: () => Promise<T>, maxRetries = 5, initialDelay = 3000): Promise<T> {
+export async function withRetry<T>(fn: () => Promise<T>, maxRetries = 8, initialDelay = 5000): Promise<T> {
   let retries = 0;
   while (true) {
     try {
@@ -57,24 +57,35 @@ async function withRetry<T>(fn: () => Promise<T>, maxRetries = 5, initialDelay =
     } catch (error: any) {
       const errorMsg = error.message?.toLowerCase() || "";
       const isRateLimit = errorMsg.includes('rate limit') || 
+                          errorMsg.includes('quota') ||
+                          errorMsg.includes('429') ||
+                          errorMsg.includes('exhausted') ||
                           error.status === 429 ||
                           (error.response?.status === 429) ||
                           (typeof error.message === 'string' && error.message.includes('429'));
       
       const isNetworkError = errorMsg.includes('failed to fetch') || 
                              errorMsg.includes('network error') ||
-                             errorMsg.includes('aborted') || // Though aborted might be intentional, sometimes it's a timeout
+                             errorMsg.includes('aborted') || 
+                             errorMsg.includes('timeout') ||
                              [500, 502, 503, 504].includes(error.status) ||
                              [500, 502, 503, 504].includes(error.response?.status);
 
       if ((isRateLimit || isNetworkError) && retries < maxRetries) {
         retries++;
-        const delay = initialDelay * Math.pow(2, retries - 1);
+        // Exponential backoff with jitter
+        const delay = initialDelay * Math.pow(2, retries - 1) + Math.random() * 1000;
         const reason = isRateLimit ? "Rate limit exceeded" : "Network error/Server error";
-        console.warn(`${reason}. Retrying in ${delay}ms... (Attempt ${retries}/${maxRetries})`);
+        console.warn(`${reason}. Retrying in ${Math.round(delay)}ms... (Attempt ${retries}/${maxRetries})`);
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
+      
+      // If it's a rate limit error and we've exhausted retries, provide a cleaner message
+      if (isRateLimit) {
+        throw new Error("AI 响应过快，请稍后再试 (Rate limit exceeded)");
+      }
+      
       throw error;
     }
   }
@@ -392,7 +403,11 @@ export async function fetchAiResponse(
 ) {
   const effectiveApiSettings = { ...apiSettings, ...customApiSettings };
   const apiKey = effectiveApiSettings.apiKey?.trim() || process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error("API Key is missing");
+  
+  if (!apiKey) {
+    console.error("AI Service Error: API Key is missing. Settings:", effectiveApiSettings);
+    throw new Error("API Key is missing. Please check your settings.");
+  }
   
   // 视觉感知预处理
   let imageDescription: string | null = null;

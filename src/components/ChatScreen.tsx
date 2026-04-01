@@ -64,7 +64,7 @@ interface Props {
   onAiPhoneToggle?: (isOpen: boolean) => void;
   aiRef: React.MutableRefObject<GoogleGenAI | null>;
   setAiPhoneRequest: (request: {msgId: string, personaId: string} | null) => void;
-  setPhoneResponseHandler: (handler: ((msgId: string, accept: boolean) => void) | null) => void;
+  onCheckPhoneResponse: (msgId: string, personaId: string, accept: boolean) => void;
   onDissolveGroup?: (id: string) => void;
   onAddGroupMembers?: (groupId: string, memberIds: string[]) => void;
   typingPersonas: Record<string, boolean>;
@@ -160,7 +160,7 @@ export function ChatScreen({
   onAiPhoneToggle,
   aiRef,
   setAiPhoneRequest,
-  setPhoneResponseHandler,
+  onCheckPhoneResponse,
   onDissolveGroup,
   onAddGroupMembers,
   typingPersonas,
@@ -265,7 +265,15 @@ export function ChatScreen({
         }
       }
       const groupInfo = m.groupId ? `(在群聊"${groups.find(g=>g.id===m.groupId)?.name || '未知群聊'}"中)` : '(在私聊中)';
-      return `${groupInfo} ${senderName}: ${m.text}`;
+      let content = m.text;
+      if (m.msgType === 'transfer') {
+        content = m.role === 'user' ? `用户向你转账了 ${m.amount} 元${m.transferNote ? `，备注是：“${m.transferNote}”` : ''}` : (m.isReceived ? `我收到了用户的转账 ${m.amount} 元` : `我向用户转账了 ${m.amount} 元${m.transferNote ? `，备注是：“${m.transferNote}”` : ''}`);
+      } else if (m.msgType === 'sticker') {
+        content = `[表情包]`;
+      } else if (m.msgType === 'relativeCard') {
+        content = `[亲属卡]`;
+      }
+      return `${groupInfo} ${senderName}: ${content}`;
     }).join('\n');
 
     return `\n\n【跨聊天记忆】\n你（或用户）最近在其他聊天中有以下互动记录，请在回复时保持记忆连贯：\n${contextStr}`;
@@ -382,6 +390,13 @@ export function ChatScreen({
           .map(m => {
             let role = (m.role === 'model' && m.personaId === persona.id) ? 'assistant' : 'user';
             let content = m.text;
+            if (m.msgType === 'transfer') {
+              content = m.role === 'user' ? `用户向你转账了 ${m.amount} 元${m.transferNote ? `，备注是：“${m.transferNote}”` : ''}` : (m.isReceived ? `我收到了用户的转账 ${m.amount} 元` : `我向用户转账了 ${m.amount} 元${m.transferNote ? `，备注是：“${m.transferNote}”` : ''}`);
+            } else if (m.msgType === 'sticker') {
+              content = `[表情包]`;
+            } else if (m.msgType === 'relativeCard') {
+              content = `[亲属卡]`;
+            }
             if (m.role === 'model') {
               const sender = personas.find(p => p.id === m.personaId);
               content = `[${sender?.name || '未知'}]: ${content}`;
@@ -533,6 +548,13 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
           .map(m => {
             let role = (m.role === 'model' && m.personaId === persona.id) ? 'assistant' : 'user';
             let content = m.text;
+            if (m.msgType === 'transfer') {
+              content = m.role === 'user' ? `用户向你转账了 ${m.amount} 元${m.transferNote ? `，备注是：“${m.transferNote}”` : ''}` : (m.isReceived ? `我收到了用户的转账 ${m.amount} 元` : `我向用户转账了 ${m.amount} 元${m.transferNote ? `，备注是：“${m.transferNote}”` : ''}`);
+            } else if (m.msgType === 'sticker') {
+              content = `[表情包]`;
+            } else if (m.msgType === 'relativeCard') {
+              content = `[亲属卡]`;
+            }
             if (m.role === 'model') {
               const sender = personas.find(p => p.id === m.personaId);
               content = `[${sender?.name || '未知'}]: ${content}`;
@@ -2415,101 +2437,6 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
     handleSendRef.current = handleSend;
   }, [handleSend]);
 
-  const handleCheckPhoneResponse = useCallback((msgId: string, accept: boolean) => {
-    if (msgId !== 'proactive') {
-      setMessages(prev => prev.map(m => 
-        m.id === msgId ? { ...m, checkPhoneStatus: accept ? 'accepted' : 'rejected' } : m
-      ));
-    } else if (accept) {
-      // Proactive case: add a system message
-      const userMsg: Message = {
-        id: generateId(),
-        personaId: currentPersona?.id || '',
-        role: 'user',
-        text: '[我主动把手机递给了你，让你查看内容]',
-        msgType: 'system',
-        timestamp: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }),
-        isRead: true,
-        createdAt: Date.now()
-      };
-      setMessages(prev => [...prev, userMsg]);
-    }
-    
-    if (accept && currentPersona) {
-      // Gather REAL data from the phone
-      const otherPersonas = personas.filter(p => p.id !== currentPersona.id);
-      
-      // 1. Recent chats with other personas
-      const otherChats = otherPersonas.map(p => {
-        const lastMsgs = messagesRef.current
-          .filter(m => m.personaId === p.id && !m.groupId)
-          .slice(-5)
-          .map(m => `${m.role === 'user' ? '用户' : p.name}: ${m.text}`)
-          .join('\n');
-        return lastMsgs ? `【与 ${p.name} 的聊天记录】\n${lastMsgs}` : null;
-      }).filter(Boolean).join('\n\n');
-
-      // 2. Wallet transactions
-      const recentTransactions = (userProfile.transactions || [])
-        .slice(0, 10)
-        .map(t => {
-          const time = new Date(t.timestamp).toLocaleString('zh-CN');
-          return `[${time}] ${t.description}: ${t.type === 'payment' || t.type === 'transfer' ? '-' : '+'}${t.amount}元`;
-        })
-        .join('\n');
-
-      // 3. Food delivery
-      const recentOrders = orders
-        .slice(0, 5)
-        .map(o => `[${new Date(o.orderTime).toLocaleString('zh-CN')}] ${o.restaurantName}: ${o.items.join(', ')} (¥${o.totalPrice})`)
-        .join('\n');
-
-      // 4. Moments
-      const recentMoments = moments
-        .slice(0, 5)
-        .map(m => {
-          const author = personas.find(p => p.id === m.authorId)?.name || '我';
-          return `[朋友圈] ${author}: ${m.text} (${m.likedByIds.length}个赞, ${m.comments.length}条评论)`;
-        })
-        .join('\n');
-
-      const phoneData = `
-【手机实时数据快照 - 严禁幻视】
-1. 通讯录（其他联系人）：${otherPersonas.map(p => p.name).join(', ')}
-2. 钱包余额：${userProfile.balance || 0}元
-3. 最近交易记录：
-${recentTransactions || '无记录'}
-4. 最近外卖订单：
-${recentOrders || '无记录'}
-5. 朋友圈动态：
-${recentMoments || '无记录'}
-6. 与其他人的私密聊天摘要：
-${otherChats || '无其他聊天记录'}
-`.trim();
-
-      const systemPrompt = `[系统提示：用户允许了你查看TA的手机。
-你现在正在“翻看”用户的手机，以下是你真实看到的手机内容：
-${phoneData}
-
-【查岗规则 - 必须遵守】
-1. **真实性第一**：你必须基于上面提供的【手机实时数据快照】进行质问或评论。严禁虚构不存在的聊天、转账或App内容。
-2. **识别情敌/小三**：如果发现用户与其他异性（其他联系人）有频繁互动、暧昧言语、大额转账或共同的外卖订单，请立刻表现出怀疑、嫉妒或愤怒。
-3. **细节控**：关注细节，比如“为什么给这个人的备注是‘宝贝’？”、“为什么昨天晚上给TA转了520元？”、“为什么你点的外卖是双人份的？”。
-4. **沉浸感**：使用 [ACTION:IMAGE:描述] 标签生成一张你看到的“证据”截图（例如：[ACTION:IMAGE:一张微信聊天截图，显示用户给某人转账520元的记录]），然后发给用户并直接质问。
-5. **人设统一**：保持你原本的人设性格，但在此基础上增加“查岗”时的真实反应。
-6. **严禁幻视**：如果数据中没有显示某项内容，绝对不要凭空捏造。如果没有发现问题，可以表现出暂时的放心，但仍保持警惕。]`;
-      
-      handleSendRef.current(systemPrompt, 'system', undefined, undefined, undefined, undefined, undefined, undefined, true);
-    } else {
-      handleSendRef.current("[系统提示：用户拒绝了你查看TA手机的请求。请根据你的人设作出反应（例如：生气、怀疑、撒娇等）。]", 'system', undefined, undefined, undefined, undefined, undefined, undefined, true);
-    }
-  }, [currentPersona, personas, userProfile, orders, moments]);
-
-  useEffect(() => {
-    setPhoneResponseHandler(() => handleCheckPhoneResponse);
-    return () => setPhoneResponseHandler(null);
-  }, [setPhoneResponseHandler, handleCheckPhoneResponse]);
-
   const handleTransferClick = () => {
     setShowTransferModal(true);
   };
@@ -3706,13 +3633,13 @@ ${phoneData}
                               {msg.checkPhoneStatus === 'pending' ? (
                                 <div className="flex gap-2 border-t border-neutral-100 pt-2">
                                   <button 
-                                    onClick={() => handleCheckPhoneResponse(msg.id, false)}
+                                    onClick={() => onCheckPhoneResponse(msg.id, msg.personaId, false)}
                                     className="flex-1 py-1.5 bg-neutral-100 text-neutral-600 text-[13px] rounded-lg active:bg-neutral-200"
                                   >
                                     拒绝
                                   </button>
                                   <button 
-                                    onClick={() => handleCheckPhoneResponse(msg.id, true)}
+                                    onClick={() => onCheckPhoneResponse(msg.id, msg.personaId, true)}
                                     className="flex-1 py-1.5 bg-blue-500 text-white text-[13px] rounded-lg active:bg-blue-600"
                                   >
                                     允许

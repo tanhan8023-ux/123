@@ -32,6 +32,7 @@ export interface Persona {
     wallpaper?: string;
     customIcons?: Record<string, string>;
     userRemark?: string;
+    isMonitoringEnabled?: boolean;
   };
   diaryEntries?: DiaryEntry[];
 }
