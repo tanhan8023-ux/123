@@ -493,7 +493,7 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
 
   // Group chat spontaneous reply logic
   useEffect(() => {
-    if (!currentGroupId || !isActive || apiSettings.isProactiveMessagingEnabled === false) return;
+    if (!currentGroupId || !isActive) return;
     
     const currentGroup = groups.find(g => g.id === currentGroupId);
     if (!currentGroup) return;
