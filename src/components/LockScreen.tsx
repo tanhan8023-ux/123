@@ -75,16 +75,16 @@ export function LockScreen({ onUnlock, theme, notification, personas }: Props) {
         )}
       </div>
 
-      <Lock size={20} className="mb-2 drop-shadow-md" style={{ color: theme.timeColor || '#ffffff' }} />
+      <Lock size={20} className="mb-2" style={{ color: theme.timeColor || '#ffffff' }} />
       <h1 
-        className="text-7xl font-light tracking-tight drop-shadow-sm"
-        style={{ color: theme.timeColor || '#ffffff' }}
+        className="text-7xl font-light tracking-tight"
+        style={{ color: theme.timeColor || '#ffffff', textShadow: '0 2px 10px rgba(0,0,0,0.3)' }}
       >
         {formatTime(time)}
       </h1>
       <p 
-        className="text-lg mt-1 font-medium drop-shadow-sm"
-        style={{ color: theme.timeColor ? `${theme.timeColor}e6` : '#ffffffe6' }}
+        className="text-lg mt-1 font-medium"
+        style={{ color: theme.timeColor ? `${theme.timeColor}e6` : '#ffffffe6', textShadow: '0 1px 5px rgba(0,0,0,0.3)' }}
       >
         {formatDate(time)}
       </p>
@@ -96,7 +96,7 @@ export function LockScreen({ onUnlock, theme, notification, personas }: Props) {
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="w-full bg-white/80 backdrop-blur-xl rounded-2xl p-4 shadow-lg flex items-center gap-3 border border-white/50"
+            className="w-full bg-white/95 rounded-2xl p-4 shadow-lg flex items-center gap-3 border border-white/50"
           >
             <img src={personas?.find(p => p.id === notification.personaId)?.avatarUrl || personas?.[0]?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80'} className="w-10 h-10 rounded-xl object-cover shrink-0" alt="avatar" />
             <div className="flex-1 overflow-hidden">
@@ -135,7 +135,7 @@ export function LockScreen({ onUnlock, theme, notification, personas }: Props) {
               (theme.fingerprintStyle === 'star' || theme.fingerprintStyle === 'heart' || theme.fingerprintStyle === 'cyberpunk') ? 'bg-white/30' :
               theme.fingerprintStyle === 'liquid' ? 'bg-white/20' :
               ''
-            } backdrop-blur-md shadow-lg relative overflow-hidden`}
+            } shadow-lg relative overflow-hidden`}
             animate={isScanning ? { scale: 1.1 } : { scale: 1 }}
           >
             {theme.fingerprintStyle === 'biometric' && (
@@ -192,7 +192,7 @@ export function LockScreen({ onUnlock, theme, notification, personas }: Props) {
             </svg>
           )}
         </div>
-        <span className="text-white text-sm font-medium drop-shadow-md">
+        <span className="text-white text-sm font-medium" style={{ textShadow: '0 1px 5px rgba(0,0,0,0.5)' }}>
           {isScanning ? '正在识别...' : scanComplete ? '识别成功' : '点击指纹解锁'}
         </span>
       </div>

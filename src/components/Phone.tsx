@@ -101,11 +101,11 @@ export function Phone({ children, onHomeClick, theme, hideHomeIndicator }: { chi
         {(theme.showStatusBar !== false) && (
         <div 
           className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] flex items-center justify-between px-6 z-50 text-xs font-bold pointer-events-none"
-          style={{ color: theme.statusColor || '#ffffff', paddingTop: 'calc(0.5rem + env(safe-area-inset-top))', height: 'calc(3.5rem + env(safe-area-inset-top))' }}
+          style={{ color: theme.statusColor || '#ffffff', paddingTop: 'calc(0.5rem + env(safe-area-inset-top))', height: 'calc(3.5rem + env(safe-area-inset-top))', textShadow: '0 1px 3px rgba(0,0,0,0.3)' }}
         >
-          <span className="drop-shadow-md text-[13px]">{formatTime(time)}</span>
+          <span className="text-[13px]">{formatTime(time)}</span>
           
-          <div className="flex items-center gap-1.5 drop-shadow-md">
+          <div className="flex items-center gap-1.5">
             <span className="text-[10px] mr-1">VPN</span>
             <Signal size={14} strokeWidth={2.5} />
             <Wifi size={14} strokeWidth={2.5} />
@@ -132,7 +132,7 @@ export function Phone({ children, onHomeClick, theme, hideHomeIndicator }: { chi
                   className="absolute -right-[3px] top-1/2 -translate-y-1/2 w-[2px] h-1.5 rounded-r-sm opacity-80"
                   style={{ backgroundColor: theme.statusColor || '#ffffff' }}
                 ></div>
-                {isCharging && <Zap size={10} className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white fill-white drop-shadow-sm" />}
+                {isCharging && <Zap size={10} className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white fill-white" />}
               </div>
             </div>
           </div>
