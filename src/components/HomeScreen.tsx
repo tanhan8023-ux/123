@@ -150,6 +150,7 @@ export function HomeScreen({ onNavigate, onLock, theme, setTheme, unreadCount, u
   const [showAddWidgetModal, setShowAddWidgetModal] = useState(false);
   const [anniversaryTitleInput, setAnniversaryTitleInput] = useState('');
   const [anniversaryDateInput, setAnniversaryDateInput] = useState('');
+  const [anniversaryImageInput, setAnniversaryImageInput] = useState('');
   const [signatureInput, setSignatureInput] = useState('');
   const [coupleSignInput, setCoupleSignInput] = useState({ text1: '', text2: '', color: '' });
   const [memoInput, setMemoInput] = useState({ content: '', color: '' });
@@ -162,6 +163,7 @@ export function HomeScreen({ onNavigate, onLock, theme, setTheme, unreadCount, u
   const [foodRoulette, setFoodRoulette] = useState<{spinning: boolean, result: string | null}>({spinning: false, result: null});
   const imageInputRef = useRef<HTMLInputElement>(null);
   const iconInputRef = useRef<HTMLInputElement>(null);
+  const anniversaryImageInputRef = useRef<HTMLInputElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const isRestoringScroll = useRef<boolean>(true);
   const touchStartTime = useRef<number>(0);
@@ -611,22 +613,32 @@ export function HomeScreen({ onNavigate, onLock, theme, setTheme, unreadCount, u
               onClick={() => {
                 setAnniversaryTitleInput(userProfile.anniversaryTitle || '相恋');
                 setAnniversaryDateInput(userProfile.anniversaryDate || '');
+                setAnniversaryImageInput(userProfile.anniversaryImage || '');
                 setEditingWidget('anniversary');
               }}
             >
-              <div className="absolute -right-4 -top-4 w-24 h-24 bg-pink-300/20 rounded-full blur-xl"></div>
-              <div className="absolute -left-4 -bottom-4 w-24 h-24 bg-blue-300/20 rounded-full blur-xl"></div>
+              {userProfile.anniversaryImage ? (
+                <div className="absolute inset-0 z-0">
+                  <img src={userProfile.anniversaryImage} alt="Anniversary" className="w-full h-full object-cover opacity-60" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
+                </div>
+              ) : (
+                <>
+                  <div className="absolute -right-4 -top-4 w-24 h-24 bg-pink-300/20 rounded-full blur-xl"></div>
+                  <div className="absolute -left-4 -bottom-4 w-24 h-24 bg-blue-300/20 rounded-full blur-xl"></div>
+                </>
+              )}
               
               <div className="relative z-10">
                 <div className="flex items-center gap-2 mb-2">
-                  <Heart size={16} className="fill-pink-400 text-pink-400 animate-pulse" />
-                  <span className="text-[13px] text-neutral-600 font-medium">{userProfile.anniversaryTitle || '相恋'}</span>
+                  <Heart size={16} className={`fill-pink-400 text-pink-400 animate-pulse ${userProfile.anniversaryImage ? 'drop-shadow-md' : ''}`} />
+                  <span className={`text-[13px] font-medium ${userProfile.anniversaryImage ? 'text-white drop-shadow-md' : 'text-neutral-600'}`}>{userProfile.anniversaryTitle || '相恋'}</span>
                 </div>
                 <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-bold text-neutral-800 tracking-tight">{getDaysTogether()}</span>
-                  <span className="text-[14px] text-neutral-500 font-medium">天</span>
+                  <span className={`text-4xl font-bold tracking-tight ${userProfile.anniversaryImage ? 'text-white drop-shadow-md' : 'text-neutral-800'}`}>{getDaysTogether()}</span>
+                  <span className={`text-[14px] font-medium ${userProfile.anniversaryImage ? 'text-white/90 drop-shadow-md' : 'text-neutral-500'}`}>天</span>
                 </div>
-                <div className="text-[11px] text-neutral-400 mt-2">
+                <div className={`text-[11px] mt-2 ${userProfile.anniversaryImage ? 'text-white/80 drop-shadow-md' : 'text-neutral-400'}`}>
                   {userProfile.anniversaryDate ? `起始日: ${userProfile.anniversaryDate}` : '点击设置纪念日'}
                 </div>
               </div>
@@ -1290,6 +1302,54 @@ export function HomeScreen({ onNavigate, onLock, theme, setTheme, unreadCount, u
             <h3 className="text-lg font-bold mb-4 text-neutral-800">自定义纪念日组件</h3>
             
             <div className="mb-4">
+              <label className="block text-sm font-medium text-neutral-600 mb-1">背景图片</label>
+              <div 
+                className="w-full h-32 bg-neutral-100 rounded-xl border-2 border-dashed border-neutral-300 flex items-center justify-center cursor-pointer overflow-hidden relative group"
+                onClick={() => anniversaryImageInputRef.current?.click()}
+              >
+                <input 
+                  type="file" 
+                  ref={anniversaryImageInputRef} 
+                  className="hidden" 
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = (event) => {
+                        if (event.target?.result) {
+                          setAnniversaryImageInput(event.target.result as string);
+                        }
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                />
+                {anniversaryImageInput ? (
+                  <>
+                    <img src={anniversaryImageInput} alt="Anniversary Background" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <span className="text-white text-sm font-medium">点击更换</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center text-neutral-400">
+                    <ImageIcon size={24} className="mb-1" />
+                    <span className="text-xs font-medium">点击上传背景</span>
+                  </div>
+                )}
+              </div>
+              {anniversaryImageInput && (
+                <button 
+                  className="text-xs text-red-500 mt-2 font-medium"
+                  onClick={() => setAnniversaryImageInput('')}
+                >
+                  移除背景图片
+                </button>
+              )}
+            </div>
+
+            <div className="mb-4">
               <label className="block text-sm font-medium text-neutral-600 mb-1">标题</label>
               <input 
                 type="text" 
@@ -1322,7 +1382,8 @@ export function HomeScreen({ onNavigate, onLock, theme, setTheme, unreadCount, u
                   setUserProfile(prev => ({
                     ...prev,
                     anniversaryTitle: anniversaryTitleInput.trim(),
-                    anniversaryDate: anniversaryDateInput
+                    anniversaryDate: anniversaryDateInput,
+                    anniversaryImage: anniversaryImageInput || undefined
                   }));
                   setEditingWidget(null);
                 }}

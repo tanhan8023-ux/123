@@ -466,7 +466,7 @@ export async function fetchAiResponse(
     });
 
     if (!isSystemTask) await extractAndSaveMemory(promptText, text, aiRef, effectiveApiSettings);
-    return { responseText: processAiResponse(text, persona.name), imageDescription };
+    return { responseText: processAiResponse(text, persona.name, disableActions), imageDescription };
   } catch (error: any) {
     if (error.name !== 'AbortError') {
       console.error("AI Response Error:", error);

@@ -81,6 +81,7 @@ export interface UserProfile {
   enableActionDescriptions?: boolean;
   anniversaryDate?: string;
   anniversaryTitle?: string;
+  anniversaryImage?: string;
   signature?: string;
   patSuffix?: string;
   persona?: string;
