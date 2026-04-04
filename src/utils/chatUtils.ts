@@ -124,17 +124,33 @@ export const processAiResponseParts = (responseText: string | { responseText: st
       
       if (cleanText) {
         if (isSegmentResponse) {
-          // Updated segmentation regex to be more comprehensive
-          const segments = cleanText.split(/([。！？\n!?]+|(?:\.\.\.+)|\\n)/).filter((s: string) => s.trim().length > 0);
-          for (let i = 0; i < segments.length; i++) {
-            if (i > 0 && segments[i].match(/^[。！？\n!?.]+/)) {
-              if (processedParts.length > 0 && processedParts[processedParts.length - 1].msgType === 'text') {
-                processedParts[processedParts.length - 1].text += segments[i];
-              } else {
-                processedParts.push({ msgType: 'text', text: segments[i].trim() });
+          // Improved segmentation: split by lines first, then by sentences while respecting quotes and parentheses
+          const lines = cleanText.split(/[\n\r]+|\\n/).filter(l => l.trim());
+          for (const line of lines) {
+            // Split by sentence-ending punctuation, but try to keep them together if they are part of a formatted block
+            // This is a simplified approach: we split by punctuation but then merge back if we detect unbalanced quotes/parentheses
+            const segments = line.split(/([。！？!?]+|(?:\.\.\.+))/).filter((s: string) => s.trim().length > 0);
+            let buffer = "";
+            for (let i = 0; i < segments.length; i++) {
+              const segment = segments[i];
+              buffer += segment;
+              
+              // Check if buffer has balanced parentheses and quotes
+              const openParen = (buffer.match(/\(/g) || []).length;
+              const closeParen = (buffer.match(/\)/g) || []).length;
+              const openQuote = (buffer.match(/[“"「]/g) || []).length;
+              const closeQuote = (buffer.match(/[”"」]/g) || []).length;
+              
+              const isBalanced = openParen === closeParen && openQuote === closeQuote;
+              const isPunctuation = segment.match(/^[。！？!?.]{1,3}$/);
+              
+              if (isBalanced || (i === segments.length - 1)) {
+                processedParts.push({ msgType: 'text', text: buffer.trim() });
+                buffer = "";
               }
-            } else {
-              processedParts.push({ msgType: 'text', text: segments[i].trim() });
+            }
+            if (buffer) {
+              processedParts.push({ msgType: 'text', text: buffer.trim() });
             }
           }
         } else {

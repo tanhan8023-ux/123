@@ -433,7 +433,7 @@ export async function fetchAiResponse(
     persona.instructions ? `【角色人设】\n${persona.instructions}` : "",
     persona.prompt ? `【专属提示词】\n${persona.prompt}` : "",
     `【用户人设】\n${userProfile.persona || '一个普通人'}`,
-    `【回复规范】绝对锁定身份。拒绝客服腔。动作描写用括号包裹。严禁替用户说话。禁止在回复开头添加 [角色名] 或任何类似的前缀。`,
+    `【回复规范】绝对锁定身份。拒绝客服腔。严禁替用户说话。禁止在回复开头添加 [角色名] 或任何类似的前缀。所有的动作、心理、环境描写必须包裹在括号 ( ) 中。所有的对白必须包裹在双引号 “ ” 中。`,
     additionalSystemInstructions,
     disableActions ? "【绝对禁止】严禁任何动作描写，严禁使用括号，只输出对话文字。" : ""
   ].filter(Boolean).join('\n\n');
