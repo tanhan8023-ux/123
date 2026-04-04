@@ -31,11 +31,12 @@ export const processAiResponseParts = (responseText: string | { responseText: st
   const musicRegex = /[\[［【\(\{]\s*MUSIC[:：]?\s*([^\]］】\)\}]+)\s*[\]］】\)\}]/i;
   const recallRegex = /[\[［【\(\{]\s*RECALL\s*[\]］】\)\}]/i;
   const imageRegex = /[\[［【\(\{]\s*ACTION[:：]?\s*IMAGE[:：]?\s*([^\]］】\)\}]+)[\]］】\)\}]/i;
+  const checkPhoneRegex = /[\[［【\(\{]\s*ACTION[:：]?\s*CHECK_PHONE\s*[\]］】\)\}]/i;
   const locationRegex = /[\[［【\(\{]\s*LOCATION[:：]?\s*([^\]］】\)\}]+)\s*[\]］】\)\}]/i;
   const quoteRegex = /[\[［]QUOTE[:：]\s*([^\]］]+)[\]］]/i;
 
   // Split text by any of these tags, keeping the tags in the result
-  const allTagsRegex = /([\[［【\(\{]\s*(?:TRANSFER|REQUEST|REFUND|RELATIVE_CARD|ORDER|STICKER|MUSIC|RECALL|QUOTE|ACTION[:：]?\s*IMAGE|LOCATION)[:：]?[^\]］】\)\}]+[\]］】\)\}]|\|\|\|)/gi;
+  const allTagsRegex = /([\[［【\(\{]\s*(?:TRANSFER|REQUEST|REFUND|RELATIVE_CARD|ORDER|STICKER|MUSIC|RECALL|QUOTE|ACTION[:：]?\s*(?:IMAGE|CHECK_PHONE)|LOCATION)[:：]?[^\]］】\)\}]+[\]］】\)\}]|\|\|\|)/gi;
   
   let rawParts = text.split(allTagsRegex).filter(p => p && p.trim() !== '|||');
   if (isSegmentResponse) {
@@ -96,6 +97,8 @@ export const processAiResponseParts = (responseText: string | { responseText: st
       const match = trimmedPart.match(imageRegex)!;
       const imageUrl = match[1].trim();
       processedParts.push({ msgType: 'sticker', sticker: imageUrl });
+    } else if (trimmedPart.match(checkPhoneRegex)) {
+      processedParts.push({ msgType: 'checkPhoneRequest' });
     } else if (trimmedPart.match(locationRegex)) {
       const match = trimmedPart.match(locationRegex)!;
       const content = match[1].trim();

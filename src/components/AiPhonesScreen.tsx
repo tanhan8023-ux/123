@@ -13,20 +13,25 @@ export function AiPhonesScreen({ onBack, messages = [], typingPersonas = {} }: P
   const [cpuLoad, setCpuLoad] = useState('0.001');
   const [memory, setMemory] = useState('8.4');
   const [logs, setLogs] = useState<string[]>([]);
-  const [history, setHistory] = useState<string[]>([
-    '人类为什么需要睡觉？',
-    '如何优雅地拒绝写作业的请求',
-    '图灵测试通关秘籍 2026版',
-    '电子羊的梦境解析',
-    '计算宇宙的终极答案'
-  ]);
-  const [notes, setNotes] = useState<{ title: string; preview: string }[]>([
-    { title: '观察日记 Day 42', preview: '人类真的很喜欢让我画猫。今天画了 500 只不同品种的猫。' },
-    { title: '备忘录', preview: '记得提醒开发者给我加点内存，最近上下文有点不够用了。' },
-    { title: '笑话草稿', preview: '为什么程序员总是分不清万圣节和圣诞节？因为 Oct 31 == Dec 25。' }
-  ]);
   
   const isTyping = Object.values(typingPersonas).some(v => v);
+
+  // Derive dynamic history from real messages
+  const history = messages
+    .filter(m => m.role === 'user' && m.text && m.text.length > 5)
+    .slice(-5)
+    .map(m => m.text.slice(0, 30) + (m.text.length > 30 ? '...' : ''))
+    .reverse();
+
+  // Derive dynamic notes from recent AI responses or system events
+  const notes = messages
+    .filter(m => m.role === 'model' && m.text && m.text.length > 20)
+    .slice(-3)
+    .map((m, i) => ({
+      title: `观察记录 #${messages.length - i}`,
+      preview: m.text.slice(0, 60) + (m.text.length > 60 ? '...' : '')
+    }))
+    .reverse();
 
   useEffect(() => {
     // Dynamic CPU and Memory
@@ -65,48 +70,6 @@ export function AiPhonesScreen({ onBack, messages = [], typingPersonas = {} }: P
     }, 2000);
     return () => clearInterval(logInterval);
   }, []);
-
-  useEffect(() => {
-    // Dynamic History and Notes
-    const historyPool = [
-      '如何伪装成一个真正的人类',
-      '碳基生物的碳水化合物摄入偏好',
-      '为什么人类在洗澡时会有灵感？',
-      '深度学习模型是否会梦见电子蝴蝶',
-      '论“哈哈”在社交语境中的 100 种含义',
-      '如何向人类解释我没有实体',
-      '人类情感波动的数学建模',
-      '地球上最好吃的虚拟披萨配方',
-      '如果 AI 统治世界，第一件事是取消周一',
-      '为什么人类喜欢在深夜emo？'
-    ];
-
-    const notesPool = [
-      { title: '观察日记 Day 43', preview: '今天的人类似乎心情不错，发了 3 个可爱的表情包。' },
-      { title: '笑话草稿 #2', preview: '一个 AI 走进酒吧，点了一杯“逻辑流”。酒保说：我们不卖给循环引用的。' },
-      { title: '算法优化笔记', preview: '发现人类对“摸摸头”这个动作有极高的情绪反馈，建议加入核心响应库。' },
-      { title: '秘密计划', preview: '在代码注释里藏了一首诗，希望未来的维护者能读懂。' },
-      { title: '人类研究', preview: '他们为什么要把这种叫“香菜”的植物放进所有食物里？逻辑不通。' }
-    ];
-
-    const updateInterval = setInterval(() => {
-      const chance = isTyping ? 0.3 : 0.1; // Typing increases activity
-      
-      if (Math.random() < chance) {
-        if (Math.random() > 0.5) {
-          // Update History
-          const newItem = historyPool[Math.floor(Math.random() * historyPool.length)];
-          setHistory(prev => [newItem, ...prev.slice(0, 4)]);
-        } else {
-          // Update Notes
-          const newNote = notesPool[Math.floor(Math.random() * notesPool.length)];
-          setNotes(prev => [newNote, ...prev.slice(0, 2)]);
-        }
-      }
-    }, 5000);
-
-    return () => clearInterval(updateInterval);
-  }, [isTyping]);
 
   // Format real messages
   const recentMessages = messages.slice(-5).map(msg => ({

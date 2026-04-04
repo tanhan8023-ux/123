@@ -172,6 +172,7 @@ async function startServer() {
               model: modelName,
               messages,
               temperature: apiSettings?.temperature || 0.7,
+              max_tokens: 2048,
               stream: false
             })
           }));
@@ -305,7 +306,8 @@ async function startServer() {
           body: JSON.stringify({
             model: modelName,
             messages,
-            temperature: apiSettings?.temperature || 0.7
+            temperature: apiSettings?.temperature || 0.7,
+            max_tokens: 2048
           })
         }));
 
@@ -335,6 +337,7 @@ async function startServer() {
           config: {
             systemInstruction: fullSystemInstruction,
             temperature: apiSettings?.temperature || 0.7,
+            maxOutputTokens: 2048,
           }
         }));
 

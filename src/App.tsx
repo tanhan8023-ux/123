@@ -1770,7 +1770,7 @@ ${recentMsgs}`;
           additionalSystemInstructions += `\n[当前场景：用户正在和你一起听歌。当前播放：${songs[currentSongIndex].title} - ${songs[currentSongIndex].artist}。请结合歌曲氛围进行回复。]`;
         }
 
-        const latestMessages = messagesRef.current.filter(m => m.personaId === personaId && !m.groupId && m.theaterId === theaterId).slice(-50);
+        const latestMessages = messagesRef.current.filter(m => m.personaId === personaId && !m.groupId && m.theaterId === theaterId && !m.hidden).slice(-50);
         
         // If it's a transfer, we just added a receipt message to the state, but messagesRef.current might not have it yet.
         // We should manually add it to the history we send to the AI to ensure it sees its own "Received" bubble.
@@ -2063,7 +2063,7 @@ ${recentMsgs}`;
     
     const targetPersona = personas.find(p => p.id === personaId);
     if (accept && targetPersona) {
-      const phoneData = getPhoneData(personas, messages, userProfile, orders, moments, personaId);
+      const phoneData = getPhoneData(personas, messagesRef.current, userProfile, orders, moments, personaId);
       const systemPrompt = `[系统提示：用户允许了你查看TA的手机。
 你现在正在“翻看”用户的手机，以下是你真实看到的手机内容：
 ${phoneData}
@@ -2073,7 +2073,7 @@ ${phoneData}
 2. **细节控**：关注细节，比如“为什么昨天晚上花了这么多钱？”、“为什么你点的外卖是双人份的？”。
 3. **沉浸感**：使用 [ACTION:IMAGE:描述] 标签生成一张你看到的“证据”截图（例如：[ACTION:IMAGE:一张微信聊天截图，显示用户给某人转账的记录]），然后发给用户并直接质问。
 4. **人设统一**：保持你原本的人设性格，但在此基础上增加“查岗”时的真实反应。
-5. **严禁幻视**：如果数据中没有显示某项内容，绝对不要凭空捏造。如果没有发现问题，可以表现出暂时的放心，但仍保持警惕。]`;
+6. **必须回复**：你必须对看到的内容发表看法，严禁保持沉默或输出 [NO_REPLY]。]`;
       
       const userMsgId = generateId();
       const userMsg: Message = {
