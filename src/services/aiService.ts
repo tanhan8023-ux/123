@@ -423,6 +423,9 @@ export async function fetchAiResponse(
   const memories = await memoryService.getMemories();
 
   // 构建完整的系统指令
+  const isTheaterMode = !!additionalSystemInstructions.includes('剧场模式') || !!promptText.includes('剧场模式');
+  const showActions = isTheaterMode || userProfile.enableActionDescriptions === true;
+  
   const fullSystemInstruction = [
     worldbook.globalPrompt ? `【全局规则】\n${worldbook.globalPrompt}` : "",
     ...(worldbook.globalPrompts || []).filter(Boolean).map(p => `【额外全局规则】\n${p}`),
@@ -433,9 +436,9 @@ export async function fetchAiResponse(
     persona.instructions ? `【角色人设】\n${persona.instructions}` : "",
     persona.prompt ? `【专属提示词】\n${persona.prompt}` : "",
     `【用户人设】\n${userProfile.persona || '一个普通人'}`,
-    `【回复规范】绝对锁定身份。拒绝客服腔。严禁替用户说话。禁止在回复开头添加 [角色名] 或任何类似的前缀。所有的动作、心理、环境描写必须包裹在括号 ( ) 中。所有的对白必须包裹在双引号 “ ” 中。`,
+    `【回复规范】绝对锁定身份。拒绝客服腔。严禁替用户说话。禁止在回复开头添加 [角色名] 或任何类似的前缀。${showActions ? '所有的动作、心理、环境描写必须包裹在括号 ( ) 中。' : '请像真实的微信好友一样自然聊天，严禁使用 (动作) 或 *动作* 这种角色扮演式的描写。直接输出对话内容即可，不要描述动作。'}`,
     additionalSystemInstructions,
-    disableActions ? "【绝对禁止】严禁任何动作描写，严禁使用括号，只输出对话文字。" : ""
+    (disableActions || !showActions) ? "【绝对禁止】严禁任何动作描写，严禁使用括号，只输出对话文字。" : ""
   ].filter(Boolean).join('\n\n');
 
   const modelName = forceModel || effectiveApiSettings.model || 'gemini-3-flash-preview';
@@ -466,7 +469,7 @@ export async function fetchAiResponse(
     });
 
     if (!isSystemTask) await extractAndSaveMemory(promptText, text, aiRef, effectiveApiSettings);
-    return { responseText: processAiResponse(text, persona.name, disableActions), imageDescription };
+    return { responseText: processAiResponse(text, persona.name, disableActions || !showActions, isTheaterMode), imageDescription };
   } catch (error: any) {
     if (error.name !== 'AbortError') {
       console.error("AI Response Error:", error);
@@ -475,9 +478,15 @@ export async function fetchAiResponse(
   }
 }
 
-export function processAiResponse(responseText: string, personaName?: string, disableActions?: boolean) {
+export function processAiResponse(responseText: string, personaName?: string, disableActions?: boolean, keepQuotes?: boolean) {
   if (!responseText) return "";
   let processed = responseText.replace(/\[ID:\s*[^\]]+\]/gi, '').replace(/\|\|\|/g, '').trim();
+  
+  // Strip leading and trailing double quotes if they wrap the entire message AND not in theater mode
+  if (!keepQuotes && ((processed.startsWith('“') && processed.endsWith('”')) || (processed.startsWith('"') && processed.endsWith('"')))) {
+    processed = processed.substring(1, processed.length - 1).trim();
+  }
+
   if (disableActions) {
     processed = processed.replace(/\([^)]*\)/g, '').replace(/（[^）]*）/g, '').trim();
   }

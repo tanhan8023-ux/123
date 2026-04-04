@@ -2130,6 +2130,9 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
     // setIsTyping(true); 
 
     try {
+      const currentPersona = personas.find(p => p.id === msg.personaId);
+      if (!currentPersona) return;
+
       const promptText = `[系统提示：用户想知道你此刻的心声（内心真实想法，不要发出来，只是在心里默默想的）。请针对你刚才说的这句话：“${msg.text}”，用内心独白的语气补充你的真实想法。简短一点，不要超过30个字。严禁包含任何 [QUOTE: xxx], [TRANSFER: xxx], [REQUEST: xxx], [STICKER: xxx] 等特殊指令标签。请务必在心声开头加上一个表情符号来代表此刻的心情，格式为：[MOOD: 😡] 心声内容。例如：[MOOD: 😡] 真是气死我了。]`;
       
       // Context: previous messages up to this message
