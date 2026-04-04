@@ -1823,25 +1823,83 @@ ${recentMsgs}`;
           imageUrl: m.imageUrl
         }));
 
-        const { responseText, imageDescription } = await fetchAiResponse(
-          promptText, 
-          contextMessages as any, 
-          targetPersona, 
-          apiSettings, 
-          worldbook, 
-          userProfile, 
-          aiRef,
-          true,
-          additionalSystemInstructions,
-          undefined,
-          undefined,
-          targetPersona.isOffline,
-          currentImageUrl,
-          undefined,
-          false,
-          false,
-          currentAbortSignal
-        );
+        let responseText = "";
+        let imageDescription = "";
+
+        // Try server-side API first if no client-side API key is set
+        if (!apiSettings.apiKey?.trim()) {
+          try {
+            const serverResponse = await fetch('/api/chat/sync', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                message: promptText,
+                history: contextMessages,
+                persona: targetPersona,
+                apiSettings,
+                worldbook,
+                userProfile,
+                additionalSystemInstructions,
+                imageUrl: currentImageUrl
+              }),
+              signal: currentAbortSignal
+            });
+
+            if (serverResponse.ok) {
+              const data = await serverResponse.json();
+              responseText = data.responseText;
+            } else {
+              throw new Error(`Server API Error: ${serverResponse.status}`);
+            }
+          } catch (serverError) {
+            console.warn("Server-side AI call failed, falling back to client-side:", serverError);
+            // Fallback to client-side call
+            const clientRes = await fetchAiResponse(
+              promptText, 
+              contextMessages as any, 
+              targetPersona, 
+              apiSettings, 
+              worldbook, 
+              userProfile, 
+              aiRef,
+              true,
+              additionalSystemInstructions,
+              undefined,
+              undefined,
+              targetPersona.isOffline,
+              currentImageUrl,
+              undefined,
+              false,
+              false,
+              currentAbortSignal
+            );
+            responseText = clientRes.responseText;
+            imageDescription = clientRes.imageDescription || "";
+          }
+        } else {
+          // Use client-side call directly if API key is provided in settings
+          const clientRes = await fetchAiResponse(
+            promptText, 
+            contextMessages as any, 
+            targetPersona, 
+            apiSettings, 
+            worldbook, 
+            userProfile, 
+            aiRef,
+            true,
+            additionalSystemInstructions,
+            undefined,
+            undefined,
+            targetPersona.isOffline,
+            currentImageUrl,
+            undefined,
+            false,
+            false,
+            currentAbortSignal
+          );
+          responseText = clientRes.responseText;
+          imageDescription = clientRes.imageDescription || "";
+        }
 
         // If a new request was triggered while fetching, abort this one
         if (aiResponseTimeouts.current[personaId] !== currentTimeoutId) {

@@ -242,6 +242,112 @@ async function startServer() {
     })();
   });
 
+  // Synchronous chat endpoint for direct client-side calls
+  app.post("/api/chat/sync", async (req, res) => {
+    const { 
+      message, 
+      history, 
+      persona, 
+      apiSettings, 
+      worldbook, 
+      userProfile, 
+      additionalSystemInstructions,
+      forceModel,
+      imageUrl
+    } = req.body;
+
+    const settingsKey = apiSettings?.apiKey?.trim();
+    const envKey = process.env.GEMINI_API_KEY;
+    const apiKey = settingsKey || envKey;
+
+    if (!apiKey) {
+      return res.status(400).json({ error: "API Key is missing." });
+    }
+
+    try {
+      const modelName = forceModel || apiSettings?.model || 'gemini-3-flash-preview';
+      const now = new Date();
+      const timeString = now.toLocaleString('zh-CN');
+
+      const fullSystemInstruction = [
+        worldbook?.globalPrompt ? `【全局规则】\n${worldbook.globalPrompt}` : "",
+        worldbook?.jailbreakPrompt ? `【破限协议】\n${worldbook.jailbreakPrompt}` : "",
+        `【当前时间】${timeString}。`,
+        persona?.instructions ? `【角色人设】\n${persona.instructions}` : "",
+        persona?.prompt ? `【专属提示词】\n${persona.prompt}` : "",
+        `【用户人设】\n${userProfile?.persona || '一个普通人'}`,
+        `【回复规范】绝对锁定身份。拒绝客服腔。动作描写用括号包裹。严禁替用户说话。`,
+        additionalSystemInstructions || ""
+      ].filter(Boolean).join('\n\n');
+
+      let responseText = "";
+
+      if (apiSettings?.apiUrl) {
+        // OpenAI Compatible
+        let endpoint = apiSettings.apiUrl;
+        if (!endpoint.endsWith('/chat/completions') && !endpoint.endsWith('/v1/messages')) {
+          endpoint = endpoint.endsWith('/') ? `${endpoint}chat/completions` : `${endpoint}/chat/completions`;
+        }
+
+        const messages = history.map((m: any) => ({
+          role: m.role === 'model' || m.role === 'assistant' ? 'assistant' : 'user',
+          content: m.content || m.text || ''
+        }));
+        messages.unshift({ role: 'system', content: fullSystemInstruction });
+        messages.push({ role: 'user', content: message || '' });
+
+        const response = await withRetry(() => fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+          },
+          body: JSON.stringify({
+            model: modelName,
+            messages,
+            temperature: apiSettings?.temperature || 0.7
+          })
+        }));
+
+        if (!response.ok) throw new Error(`API Error: ${response.status}`);
+        const data = await response.json() as any;
+        responseText = data.choices?.[0]?.message?.content || "";
+      } else {
+        // Native Gemini
+        const ai = new GoogleGenAI({ apiKey });
+        const contents = history.map((m: any) => ({
+          role: m.role === 'model' || m.role === 'assistant' ? 'model' : 'user',
+          parts: [{ text: m.content || m.text || '' }]
+        }));
+        
+        let currentContent: any = message;
+        if (imageUrl) {
+          currentContent = [
+            { text: message },
+            { inlineData: { mimeType: "image/jpeg", data: imageUrl.split(',')[1] } }
+          ];
+        }
+        contents.push({ role: 'user', parts: Array.isArray(currentContent) ? currentContent : [{ text: currentContent }] });
+
+        const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
+          model: modelName,
+          contents,
+          config: {
+            systemInstruction: fullSystemInstruction,
+            temperature: apiSettings?.temperature || 0.7,
+          }
+        }));
+
+        responseText = response.text || "";
+      }
+
+      res.json({ responseText });
+    } catch (error: any) {
+      console.error("Sync AI Error:", error);
+      res.status(500).json({ error: error.message || "Internal server error" });
+    }
+  });
+
   // --- Vite Middleware ---
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
