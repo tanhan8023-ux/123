@@ -1792,19 +1792,17 @@ ${recentMsgs}`;
         }
 
         // Ensure the current user message is in the history if it's missing (due to state update lag)
-        if (userMsgId && !latestMessages.some(m => m.id === userMsgId)) {
-          const currentMsg = messagesRef.current.find(m => m.id === userMsgId);
-          if (currentMsg) {
-            latestMessages.push(currentMsg);
-          }
-        }
+        // Wait, we actually want to EXCLUDE the current user message from the context array
+        // because fetchAiResponse will append promptText to the end of the messages array.
+        // If we include it here, the AI will see the user's message twice.
+        const filteredLatestMessages = latestMessages.filter(m => m.id !== userMsgId);
         
         let currentImageUrl = undefined;
         if (msgType === 'image' && imageUrl) {
           currentImageUrl = imageUrl;
         }
 
-        const contextMessages = latestMessages.map(m => ({
+        const contextMessages = filteredLatestMessages.map(m => ({
           role: m.role === 'model' ? 'model' : 'user',
           content: m.isRecalled ? '[此消息已撤回]' : (
                    m.msgType === 'transfer' ? (
