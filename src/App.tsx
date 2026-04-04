@@ -15,7 +15,6 @@ import { TaobaoScreen } from './components/TaobaoScreen';
 import { generateId } from './utils/id';
 import { FoodDeliveryScreen } from './components/FoodDeliveryScreen';
 import { BartenderGame } from './components/BartenderGame';
-import { AiPhonesScreen } from './components/AiPhonesScreen';
 import { PhoneScreen } from './components/PhoneScreen';
 import { ActiveCallScreen } from './components/ActiveCallScreen';
 import { ChatBubble } from './components/ChatBubble';
@@ -75,7 +74,6 @@ export default function App() {
   const generatingDiariesRef = useRef<Set<string>>(new Set());
   const [hasApiKey, setHasApiKey] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
-  const [aiPhoneRequest, setAiPhoneRequest] = useState<{msgId: string, personaId: string} | null>(null);
 
   // Wallet State
   const handleRecharge = (amount: number) => {
@@ -3166,21 +3164,6 @@ ${phoneData}
                 </motion.div>
               )}
 
-              {currentScreen === 'aiphones' && (
-                <motion.div
-                  key="aiphones"
-                  initial={{ opacity: 0, x: '100%' }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: '100%' }}
-                  transition={{ duration: 0.3, type: 'spring', bounce: 0 }}
-                  className="w-full h-full absolute inset-0 z-20 bg-white"
-                >
-                  <AiPhonesScreen 
-                    onBack={() => setCurrentScreen('home')}
-                  />
-                </motion.div>
-              )}
-
               {currentScreen === 'lovewidget' && (
                 <motion.div
                   key="lovewidget"
@@ -3257,8 +3240,6 @@ ${phoneData}
                 >
                   <ChatScreen 
                     isActive={currentScreen === 'chat'}
-                    setAiPhoneRequest={setAiPhoneRequest}
-                    onCheckPhoneResponse={handleCheckPhoneResponse}
                     typingPersonas={typingPersonas}
                     triggerAiResponse={triggerAiResponse}
                     unreadCount={unreadCount}
@@ -3298,7 +3279,6 @@ ${phoneData}
                     onMusicClick={() => setCurrentScreen('music')}
                     xhsPrivateChats={xhsPrivateChats}
                     orders={orders}
-                    onAiPhoneToggle={setIsAiPhoneOpen}
                   />
                 </motion.div>
               )}
@@ -3329,58 +3309,6 @@ ${phoneData}
               aiRef={aiRef}
               setPersonas={setPersonas}
             />
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* AI Phone Request Modal */}
-      <AnimatePresence>
-        {aiPhoneRequest && (
-          <div className="absolute inset-0 z-[10001] flex items-center justify-center p-8 bg-black/50 backdrop-blur-md">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="bg-white rounded-[40px] w-full max-w-sm overflow-hidden shadow-2xl p-10 flex flex-col items-center text-center space-y-8"
-            >
-              <div className="w-28 h-28 bg-blue-50 rounded-full flex items-center justify-center">
-                <div className="w-20 h-20 bg-blue-100/50 rounded-full flex items-center justify-center">
-                  <PhoneIcon className="w-10 h-10 text-blue-500 fill-blue-500" />
-                </div>
-              </div>
-              
-              <div className="space-y-3">
-                <h3 className="text-2xl font-bold text-neutral-900 tracking-tight">AI 请求查看手机</h3>
-                <p className="text-neutral-400 text-[15px] leading-relaxed px-4">
-                  AI 想要查看您的手机内容，是否允许？
-                </p>
-              </div>
-              
-              <div className="flex gap-4 w-full pt-4">
-                <button
-                  onClick={() => {
-                    if (aiPhoneRequest) {
-                      handleCheckPhoneResponse(aiPhoneRequest.msgId, aiPhoneRequest.personaId, false);
-                    }
-                    setAiPhoneRequest(null);
-                  }}
-                  className="flex-1 py-4 bg-neutral-100 text-neutral-600 font-bold rounded-3xl active:scale-95 transition-transform text-[16px]"
-                >
-                  拒绝
-                </button>
-                <button
-                  onClick={() => {
-                    if (aiPhoneRequest) {
-                      handleCheckPhoneResponse(aiPhoneRequest.msgId, aiPhoneRequest.personaId, true);
-                    }
-                    setAiPhoneRequest(null);
-                  }}
-                  className="flex-1 py-4 bg-blue-500 text-white font-bold rounded-3xl shadow-lg shadow-blue-200 active:scale-95 transition-transform text-[16px]"
-                >
-                  允许
-                </button>
-              </div>
-            </motion.div>
           </div>
         )}
       </AnimatePresence>

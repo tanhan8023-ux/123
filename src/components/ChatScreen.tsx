@@ -49,7 +49,6 @@ const fetchAiResponse = async (
 
 import { ChatInput } from './ChatInput';
 import { ChatListView } from './ChatListView';
-import { AiPhoneModal } from './AiPhoneModal';
 import { WalletScreen } from './WalletScreen';
 import { generateId } from '../utils/id';
 import { processAiResponseParts, cleanContextMessage } from '../utils/chatUtils';
@@ -85,10 +84,7 @@ interface Props {
   onMusicClick?: () => void;
   xhsPrivateChats?: Record<string, { text: string, isMe: boolean, time: number }[]>;
   orders: Order[];
-  onAiPhoneToggle?: (isOpen: boolean) => void;
   aiRef: React.MutableRefObject<GoogleGenAI | null>;
-  setAiPhoneRequest: (request: {msgId: string, personaId: string} | null) => void;
-  onCheckPhoneResponse: (msgId: string, personaId: string, accept: boolean) => void;
   onDissolveGroup?: (id: string) => void;
   onAddGroupMembers?: (groupId: string, memberIds: string[]) => void;
   typingPersonas: Record<string, boolean>;
@@ -181,10 +177,7 @@ export function ChatScreen({
   listeningWithPersonaId, currentSong, isPlaying, onMusicClick,
   xhsPrivateChats,
   orders,
-  onAiPhoneToggle,
   aiRef,
-  setAiPhoneRequest,
-  onCheckPhoneResponse,
   onDissolveGroup,
   onAddGroupMembers,
   typingPersonas,
@@ -221,12 +214,7 @@ export function ChatScreen({
   const [selectedNewMembers, setSelectedNewMembers] = useState<string[]>([]);
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [summaryResult, setSummaryResult] = useState<string | null>(null);
-  const [showAiPhone, setShowAiPhone] = useState(false);
   const [showFavorites, setShowFavorites] = useState(false);
-
-  useEffect(() => {
-    onAiPhoneToggle?.(showAiPhone);
-  }, [showAiPhone, onAiPhoneToggle]);
   const [activeMessageMenu, setActiveMessageMenu] = useState<string | null>(null);
   const [revealedRecalledIds, setRevealedRecalledIds] = useState<string[]>([]);
   const [quotedMessage, setQuotedMessage] = useState<Message | null>(null);
@@ -3512,7 +3500,7 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
                             </div>
                           )}
 
-                          {msg.msgType === 'checkPhoneRequest' && (
+                          {false && (
                             <div className={`flex flex-col gap-2 rounded-xl p-3 w-64 bg-white border border-neutral-200 text-neutral-800 shadow-sm custom-bubble-ai`}>
                               <div className="flex items-center gap-2 mb-1">
                                 <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-500">
@@ -6021,36 +6009,6 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
           );
         })()}
       </AnimatePresence>
-      {/* AI Phone Modal */}
-      {showAiPhone && currentPersona && (
-        <AiPhoneModal 
-          persona={currentPersona} 
-          onClose={() => setShowAiPhone(false)} 
-          onUpdatePersona={(updates) => {
-            setPersonas(prev => prev.map(p => p.id === currentPersona.id ? { ...p, ...updates } : p));
-          }}
-          allMessages={messages}
-          userProfile={userProfile}
-          apiSettings={apiSettings}
-          worldbook={worldbook}
-          onSendMessageAsAi={(text) => {
-            const aiMsg: Message = {
-              id: generateId(),
-              personaId: currentPersona.id,
-              role: 'model',
-              text,
-              msgType: 'text',
-              timestamp: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }),
-              createdAt: Date.now(),
-              isRead: true
-            };
-            setMessages(prev => [...prev, aiMsg]);
-          }}
-          onCreateGroup={onCreateGroup}
-          theme={theme}
-        />
-      )}
-
       {/* Favorites Modal */}
       <AnimatePresence>
         {showFavorites && (

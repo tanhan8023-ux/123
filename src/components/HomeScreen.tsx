@@ -248,7 +248,6 @@ export function HomeScreen({ onNavigate, onLock, theme, setTheme, unreadCount, u
     { type: 'app-taobao', label: '淘宝', w: 1, h: 1, icon: ShoppingBag },
     { type: 'app-fooddelivery', label: '外卖', w: 1, h: 1, icon: Utensils },
     { type: 'app-bartender', label: '调酒师', w: 1, h: 1, icon: Heart },
-    { type: 'app-aiphones', label: 'AI分身', w: 1, h: 1, icon: Smartphone },
     { type: 'app-photoalbum', label: '相册', w: 1, h: 1, icon: ImageIcon },
     { type: 'app-phone', label: '电话', w: 1, h: 1, icon: Phone },
     { type: 'love-widget', label: '恋爱组件', w: 4, h: 2, icon: Heart },
@@ -317,14 +316,13 @@ export function HomeScreen({ onNavigate, onLock, theme, setTheme, unreadCount, u
                 { id: 'app-taobao', type: 'app-taobao', x: 1, y: 0, w: 1, h: 1 },
                 { id: 'app-fooddelivery', type: 'app-fooddelivery', x: 2, y: 0, w: 1, h: 1 },
                 { id: 'app-bartender', type: 'app-bartender', x: 3, y: 0, w: 1, h: 1 },
-                { id: 'app-aiphones', type: 'app-aiphones', x: 0, y: 1, w: 1, h: 1 },
-                { id: 'app-photoalbum', type: 'app-photoalbum', x: 1, y: 1, w: 1, h: 1 },
-                { id: 'app-weather', type: 'app-weather', x: 2, y: 1, w: 1, h: 1 },
-                { id: 'app-calendar', type: 'app-calendar', x: 3, y: 1, w: 1, h: 1 },
-                { id: 'app-notes', type: 'app-notes', x: 0, y: 2, w: 1, h: 1 },
-                { id: 'app-wallet', type: 'app-wallet', x: 1, y: 2, w: 1, h: 1 },
-                { id: 'app-calculator', type: 'app-calculator', x: 2, y: 2, w: 1, h: 1 },
-                { id: 'app-camera', type: 'app-camera', x: 3, y: 2, w: 1, h: 1 },
+                { id: 'app-photoalbum', type: 'app-photoalbum', x: 0, y: 1, w: 1, h: 1 },
+                { id: 'app-weather', type: 'app-weather', x: 1, y: 1, w: 1, h: 1 },
+                { id: 'app-calendar', type: 'app-calendar', x: 2, y: 1, w: 1, h: 1 },
+                { id: 'app-notes', type: 'app-notes', x: 3, y: 1, w: 1, h: 1 },
+                { id: 'app-wallet', type: 'app-wallet', x: 0, y: 2, w: 1, h: 1 },
+                { id: 'app-calculator', type: 'app-calculator', x: 1, y: 2, w: 1, h: 1 },
+                { id: 'app-camera', type: 'app-camera', x: 2, y: 2, w: 1, h: 1 },
                 { id: 'acrylic-stand-default', type: 'acrylic-stand', x: 0, y: 3, w: 4, h: 2 },
               ]
             }
@@ -355,8 +353,7 @@ export function HomeScreen({ onNavigate, onLock, theme, setTheme, unreadCount, u
               newWidgets.push({ id: 'app-taobao', type: 'app-taobao', x: w.x + 1, y: w.y, w: 1, h: 1 });
               newWidgets.push({ id: 'app-fooddelivery', type: 'app-fooddelivery', x: w.x + 2, y: w.y, w: 1, h: 1 });
               newWidgets.push({ id: 'app-bartender', type: 'app-bartender', x: w.x + 3, y: w.y, w: 1, h: 1 });
-              newWidgets.push({ id: 'app-aiphones', type: 'app-aiphones', x: w.x, y: w.y + 1, w: 1, h: 1 });
-              newWidgets.push({ id: 'app-photoalbum', type: 'app-photoalbum', x: w.x + 1, y: w.y + 1, w: 1, h: 1 });
+              newWidgets.push({ id: 'app-photoalbum', type: 'app-photoalbum', x: w.x, y: w.y + 1, w: 1, h: 1 });
             }
           } else {
             newWidgets.push(w);
@@ -1063,8 +1060,6 @@ export function HomeScreen({ onNavigate, onLock, theme, setTheme, unreadCount, u
         return <div className="w-full h-full flex items-center justify-center"><AppIcon id="fooddelivery" icon={Utensils} label="外卖" onClick={() => onNavigate('fooddelivery')} theme={theme} isEditingLayout={isEditingLayout} onLongPress={() => setIsEditingLayout(true)} onEditIcon={() => { setActiveIconId('fooddelivery'); setShowIconEditModal(true); }} /></div>;
       case 'app-bartender':
         return <div className="w-full h-full flex items-center justify-center"><AppIcon id="bartender" icon={Heart} label="调酒师" onClick={() => onNavigate('bartender')} theme={theme} isEditingLayout={isEditingLayout} onLongPress={() => setIsEditingLayout(true)} onEditIcon={() => { setActiveIconId('bartender'); setShowIconEditModal(true); }} /></div>;
-      case 'app-aiphones':
-        return <div className="w-full h-full flex items-center justify-center"><AppIcon id="aiphones" icon={Smartphone} label="AI分身" onClick={() => onNavigate('aiphones')} theme={theme} isEditingLayout={isEditingLayout} onLongPress={() => setIsEditingLayout(true)} onEditIcon={() => { setActiveIconId('aiphones'); setShowIconEditModal(true); }} /></div>;
       case 'app-photoalbum':
         return <div className="w-full h-full flex items-center justify-center"><AppIcon id="photoalbum" icon={ImageIcon} label="相册" onClick={() => onNavigate('photoalbum')} theme={theme} isEditingLayout={isEditingLayout} onLongPress={() => setIsEditingLayout(true)} onEditIcon={() => { setActiveIconId('photoalbum'); setShowIconEditModal(true); }} /></div>;
       case 'app-phone':

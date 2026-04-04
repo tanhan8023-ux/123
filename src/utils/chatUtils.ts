@@ -30,13 +30,12 @@ export const processAiResponseParts = (responseText: string | { responseText: st
   const stickerRegex = /[\[［【\(\{]\s*STICKER[:：]?\s*([^\]］】\)\}]+)\s*[\]］】\)\}]/i;
   const musicRegex = /[\[［【\(\{]\s*MUSIC[:：]?\s*([^\]］】\)\}]+)\s*[\]］】\)\}]/i;
   const recallRegex = /[\[［【\(\{]\s*RECALL\s*[\]］】\)\}]/i;
-  const checkPhoneRegex = /[\[［【\(\{]\s*ACTION[:：]?\s*CHECK_PHONE\s*[\]］】\)\}]/i;
   const imageRegex = /[\[［【\(\{]\s*ACTION[:：]?\s*IMAGE[:：]?\s*([^\]］】\)\}]+)[\]］】\)\}]/i;
   const locationRegex = /[\[［【\(\{]\s*LOCATION[:：]?\s*([^\]］】\)\}]+)\s*[\]］】\)\}]/i;
   const quoteRegex = /[\[［]QUOTE[:：]\s*([^\]］]+)[\]］]/i;
 
   // Split text by any of these tags, keeping the tags in the result
-  const allTagsRegex = /([\[［【\(\{]\s*(?:TRANSFER|REQUEST|REFUND|RELATIVE_CARD|ORDER|STICKER|MUSIC|RECALL|QUOTE|ACTION[:：]?\s*CHECK_PHONE|ACTION[:：]?\s*IMAGE|LOCATION)[:：]?[^\]］】\)\}]+[\]］】\)\}]|\|\|\|)/gi;
+  const allTagsRegex = /([\[［【\(\{]\s*(?:TRANSFER|REQUEST|REFUND|RELATIVE_CARD|ORDER|STICKER|MUSIC|RECALL|QUOTE|ACTION[:：]?\s*IMAGE|LOCATION)[:：]?[^\]］】\)\}]+[\]］】\)\}]|\|\|\|)/gi;
   
   let rawParts = text.split(allTagsRegex).filter(p => p && p.trim() !== '|||');
   if (isSegmentResponse) {
@@ -93,9 +92,6 @@ export const processAiResponseParts = (responseText: string | { responseText: st
       processedParts.push({ msgType: 'text', text: `[播放音乐: ${match[1]}]` });
     } else if (trimmedPart.match(recallRegex)) {
       shouldRecall = true;
-    } else if (trimmedPart.match(checkPhoneRegex)) {
-      checkPhoneRequest = true;
-      processedParts.push({ msgType: 'checkPhoneRequest', text: '[请求查看你的手机]', checkPhoneStatus: 'pending' });
     } else if (trimmedPart.match(imageRegex)) {
       const match = trimmedPart.match(imageRegex)!;
       const imageUrl = match[1].trim();
