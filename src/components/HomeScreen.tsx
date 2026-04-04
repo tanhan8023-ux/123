@@ -250,6 +250,7 @@ export function HomeScreen({ onNavigate, onLock, theme, setTheme, unreadCount, u
     { type: 'app-bartender', label: '调酒师', w: 1, h: 1, icon: Heart },
     { type: 'app-photoalbum', label: '相册', w: 1, h: 1, icon: ImageIcon },
     { type: 'app-phone', label: '电话', w: 1, h: 1, icon: Phone },
+    { type: 'app-aiphones', label: 'AI分身', w: 1, h: 1, icon: Smartphone },
     { type: 'love-widget', label: '恋爱组件', w: 4, h: 2, icon: Heart },
     { type: 'acrylic-stand', label: '立牌组件', w: 4, h: 2, icon: ImageIcon },
   ];
@@ -323,6 +324,7 @@ export function HomeScreen({ onNavigate, onLock, theme, setTheme, unreadCount, u
                 { id: 'app-wallet', type: 'app-wallet', x: 0, y: 2, w: 1, h: 1 },
                 { id: 'app-calculator', type: 'app-calculator', x: 1, y: 2, w: 1, h: 1 },
                 { id: 'app-camera', type: 'app-camera', x: 2, y: 2, w: 1, h: 1 },
+                { id: 'app-aiphones', type: 'app-aiphones', x: 3, y: 2, w: 1, h: 1 },
                 { id: 'acrylic-stand-default', type: 'acrylic-stand', x: 0, y: 3, w: 4, h: 2 },
               ]
             }
@@ -1064,6 +1066,8 @@ export function HomeScreen({ onNavigate, onLock, theme, setTheme, unreadCount, u
         return <div className="w-full h-full flex items-center justify-center"><AppIcon id="photoalbum" icon={ImageIcon} label="相册" onClick={() => onNavigate('photoalbum')} theme={theme} isEditingLayout={isEditingLayout} onLongPress={() => setIsEditingLayout(true)} onEditIcon={() => { setActiveIconId('photoalbum'); setShowIconEditModal(true); }} /></div>;
       case 'app-phone':
         return <div className="w-full h-full flex items-center justify-center"><AppIcon id="phone" icon={Phone} label="电话" onClick={() => onNavigate('phone')} theme={theme} isEditingLayout={isEditingLayout} onLongPress={() => setIsEditingLayout(true)} onEditIcon={() => { setActiveIconId('phone'); setShowIconEditModal(true); }} /></div>;
+      case 'app-aiphones':
+        return <div className="w-full h-full flex items-center justify-center"><AppIcon id="aiphones" icon={Smartphone} label="AI分身" onClick={() => onNavigate('aiphones')} theme={theme} isEditingLayout={isEditingLayout} onLongPress={() => setIsEditingLayout(true)} onEditIcon={() => { setActiveIconId('aiphones'); setShowIconEditModal(true); }} /></div>;
       default:
         return null;
     }

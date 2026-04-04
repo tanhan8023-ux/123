@@ -88,6 +88,8 @@ interface Props {
   onDissolveGroup?: (id: string) => void;
   onAddGroupMembers?: (groupId: string, memberIds: string[]) => void;
   typingPersonas: Record<string, boolean>;
+  setAiPhoneRequest?: React.Dispatch<React.SetStateAction<{msgId: string, personaId: string} | null>>;
+  onCheckPhoneResponse?: (msgId: string, personaId: string, accept: boolean) => void;
   triggerAiResponse: (params: {
     personaId: string,
     text: string,
@@ -181,6 +183,8 @@ export function ChatScreen({
   onDissolveGroup,
   onAddGroupMembers,
   typingPersonas,
+  setAiPhoneRequest,
+  onCheckPhoneResponse,
   triggerAiResponse
 }: Props) {
   const [activeTab, setActiveTab] = useState<'chat' | 'contacts' | 'moments' | 'favorites' | 'theater'>('chat');
@@ -1752,7 +1756,7 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
           });
           
           if (part.msgType === 'checkPhoneRequest') {
-            setAiPhoneRequest({ msgId: aiMsg.id, personaId: currentPersona.id });
+            setAiPhoneRequest?.({ msgId: aiMsg.id, personaId: currentPersona.id });
           }
 
           // Record transaction for AI transfer (only if it's a refund, otherwise it's pending)
@@ -2679,7 +2683,7 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
         )}
         {activeTab === 'chat' && currentChatId && (
           <div className="flex items-center">
-            <button onClick={() => setShowAiPhone(true)} className="p-2 text-neutral-800 z-50">
+            <button onClick={() => onNavigate('aiphones')} className="p-2 text-neutral-800 z-50">
               <Smartphone size={20} />
             </button>
             <button onClick={() => setShowChatSettings(!showChatSettings)} className="p-2 text-neutral-800 relative z-50">
@@ -3514,13 +3518,13 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
                               {msg.checkPhoneStatus === 'pending' ? (
                                 <div className="flex gap-2 border-t border-neutral-100 pt-2">
                                   <button 
-                                    onClick={() => onCheckPhoneResponse(msg.id, msg.personaId, false)}
+                                    onClick={() => onCheckPhoneResponse?.(msg.id, msg.personaId, false)}
                                     className="flex-1 py-1.5 bg-neutral-100 text-neutral-600 text-[13px] rounded-lg active:bg-neutral-200"
                                   >
                                     拒绝
                                   </button>
                                   <button 
-                                    onClick={() => onCheckPhoneResponse(msg.id, msg.personaId, true)}
+                                    onClick={() => onCheckPhoneResponse?.(msg.id, msg.personaId, true)}
                                     className="flex-1 py-1.5 bg-blue-500 text-white text-[13px] rounded-lg active:bg-blue-600"
                                   >
                                     允许
@@ -3842,7 +3846,7 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
               <button 
                 onClick={() => {
                   setShowPlusMenu(false);
-                  setAiPhoneRequest({ msgId: 'proactive', personaId: currentPersona?.id || '' });
+                  setAiPhoneRequest?.({ msgId: 'proactive', personaId: currentPersona?.id || '' });
                 }} 
                 className="flex flex-col items-center gap-2"
               >
