@@ -1589,6 +1589,7 @@ export default function App() {
   const aiAbortControllers = useRef<Record<string, AbortController>>({});
   const pendingAiCallbacks = useRef<Record<string, () => void>>({});
   const pendingRequests = useRef<Record<string, number>>({});
+  const processedUserMsgIds = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -1642,6 +1643,13 @@ export default function App() {
     setTypingPersonas(prev => ({ ...prev, [personaId]: true }));
 
     const executeAiResponse = async () => {
+      // Prevent duplicate processing of the same message ID
+      if (processedUserMsgIds.current.has(userMsgId)) {
+        console.log(`[AI] Skipping duplicate trigger for message ${userMsgId}`);
+        return;
+      }
+      processedUserMsgIds.current.add(userMsgId);
+      
       delete pendingAiCallbacks.current[personaId];
       const currentTimeoutId = aiResponseTimeouts.current[personaId];
       try {
@@ -1794,7 +1802,18 @@ ${recentMsgs}`;
         // Wait, we actually want to EXCLUDE the current user message from the context array
         // because fetchAiResponse will append promptText to the end of the messages array.
         // If we include it here, the AI will see the user's message twice.
-        const filteredLatestMessages = latestMessages.filter(m => m.id !== userMsgId);
+        // We also filter by text and timestamp to be extra safe against duplicate messages with different IDs
+        const filteredLatestMessages = latestMessages.filter(m => {
+          if (m.id === userMsgId) return false;
+          // If a message has the same text and was created within 1 second of the current message, 
+          // it's likely a duplicate that somehow bypassed the debounce.
+          const cleanMText = (m.text || '').trim();
+          const cleanPromptText = (text || '').trim();
+          if (m.role === 'user' && cleanMText === cleanPromptText && Math.abs(m.createdAt - Date.now()) < 1000) {
+            return false;
+          }
+          return true;
+        });
         
         let currentImageUrl = undefined;
         if (msgType === 'image' && imageUrl) {
