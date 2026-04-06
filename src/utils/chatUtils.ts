@@ -141,10 +141,13 @@ export const processAiResponseParts = (responseText: string | { responseText: st
               const closeQuote = (buffer.match(/[”"」]/g) || []).length;
               
               const isBalanced = openParen === closeParen && openQuote === closeQuote;
-              const isPunctuation = segment.match(/^[。！？!?.]{1,3}$/);
+              const nextSegment = segments[i + 1];
+              const nextIsPunctuation = nextSegment && /^[。！？!?.]+$/.test(nextSegment);
               
-              if (isBalanced || (i === segments.length - 1)) {
-                processedParts.push({ msgType: 'text', text: buffer.trim() });
+              if ((isBalanced && !nextIsPunctuation) || (i === segments.length - 1)) {
+                if (buffer.trim()) {
+                  processedParts.push({ msgType: 'text', text: buffer.trim() });
+                }
                 buffer = "";
               }
             }

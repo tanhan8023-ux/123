@@ -182,6 +182,14 @@ async function callAi(params: {
       config: {
         systemInstruction: params.systemInstruction,
         temperature: params.temperature,
+        maxOutputTokens: 2048,
+        safetySettings: [
+          { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+          { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+          { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+          { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+          { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_NONE' }
+        ] as any
       }
     }));
     
@@ -253,7 +261,16 @@ export async function generateImage(prompt: string, providedApiKey: string, prov
     const imageResponse = await withRetry(() => ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: { parts: [{ text: prompt }] },
-      config: { imageConfig: { aspectRatio: "1:1" } }
+      config: { 
+        imageConfig: { aspectRatio: "1:1" },
+        safetySettings: [
+          { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+          { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+          { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+          { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+          { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_NONE' }
+        ] as any
+      }
     }));
     const part = imageResponse.candidates?.[0]?.content?.parts[0];
     if (part?.inlineData) return `data:image/png;base64,${part.inlineData.data}`;

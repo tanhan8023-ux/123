@@ -142,7 +142,7 @@ async function startServer() {
           persona?.instructions ? `【角色人设】\n${persona.instructions}` : "",
           persona?.prompt ? `【专属提示词】\n${persona.prompt}` : "",
           `【用户人设】\n${userProfile?.persona || '一个普通人'}`,
-          `【回复规范】绝对锁定身份。拒绝客服腔。动作描写用括号包裹。严禁替用户说话。`,
+          `【回复规范】绝对锁定身份。拒绝客服腔。严禁替用户说话。所有的动作、心理、环境描写必须包裹在括号 ( ) 中。请像真实的微信好友一样自然聊天。`,
           additionalSystemInstructions || ""
         ].filter(Boolean).join('\n\n');
 
@@ -155,12 +155,22 @@ async function startServer() {
             endpoint = endpoint.endsWith('/') ? `${endpoint}chat/completions` : `${endpoint}/chat/completions`;
           }
 
-          const messages = history.map((m: any) => ({
+          const rawMessages = history.map((m: any) => ({
             role: m.role === 'model' || m.role === 'assistant' ? 'assistant' : 'user',
             content: m.content || m.text || ''
           }));
+          rawMessages.push({ role: 'user', content: message || '' });
+
+          // Merge consecutive messages
+          const messages: any[] = [];
+          for (const msg of rawMessages) {
+            if (messages.length > 0 && messages[messages.length - 1].role === msg.role) {
+              messages[messages.length - 1].content += '\n' + msg.content;
+            } else {
+              messages.push({ ...msg });
+            }
+          }
           messages.unshift({ role: 'system', content: fullSystemInstruction });
-          messages.push({ role: 'user', content: message || '' });
 
           const response = await withRetry(() => fetch(endpoint, {
             method: 'POST',
@@ -186,11 +196,21 @@ async function startServer() {
         } else {
           // --- Native Gemini Call ---
           const ai = new GoogleGenAI({ apiKey });
-          const contents = history.map((m: any) => ({
+          const rawContents = history.map((m: any) => ({
             role: m.role === 'model' || m.role === 'assistant' ? 'model' : 'user',
-            parts: [{ text: m.content || m.text || '' }]
+            parts: [{ text: m.content || m.text || ' ' }]
           }));
-          contents.push({ role: 'user', parts: [{ text: message || '' }] });
+          rawContents.push({ role: 'user', parts: [{ text: message || ' ' }] });
+
+          // Merge consecutive contents
+          const contents: any[] = [];
+          for (const content of rawContents) {
+            if (contents.length > 0 && contents[contents.length - 1].role === content.role) {
+              contents[contents.length - 1].parts.push(...content.parts);
+            } else {
+              contents.push({ ...content, parts: [...content.parts] });
+            }
+          }
 
           const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
             model: modelName,
@@ -198,6 +218,14 @@ async function startServer() {
             config: {
               systemInstruction: fullSystemInstruction,
               temperature: apiSettings?.temperature || 0.7,
+              maxOutputTokens: 2048,
+              safetySettings: [
+                { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+                { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+                { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+                { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+                { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_NONE' }
+              ] as any
             }
           }));
 
@@ -277,7 +305,7 @@ async function startServer() {
         persona?.instructions ? `【角色人设】\n${persona.instructions}` : "",
         persona?.prompt ? `【专属提示词】\n${persona.prompt}` : "",
         `【用户人设】\n${userProfile?.persona || '一个普通人'}`,
-        `【回复规范】绝对锁定身份。拒绝客服腔。动作描写用括号包裹。严禁替用户说话。`,
+        `【回复规范】绝对锁定身份。拒绝客服腔。严禁替用户说话。所有的动作、心理、环境描写必须包裹在括号 ( ) 中。请像真实的微信好友一样自然聊天。`,
         additionalSystemInstructions || ""
       ].filter(Boolean).join('\n\n');
 
@@ -290,12 +318,22 @@ async function startServer() {
           endpoint = endpoint.endsWith('/') ? `${endpoint}chat/completions` : `${endpoint}/chat/completions`;
         }
 
-        const messages = history.map((m: any) => ({
+        const rawMessages = history.map((m: any) => ({
           role: m.role === 'model' || m.role === 'assistant' ? 'assistant' : 'user',
           content: m.content || m.text || ''
         }));
+        rawMessages.push({ role: 'user', content: message || '' });
+
+        // Merge consecutive messages
+        const messages: any[] = [];
+        for (const msg of rawMessages) {
+          if (messages.length > 0 && messages[messages.length - 1].role === msg.role) {
+            messages[messages.length - 1].content += '\n' + msg.content;
+          } else {
+            messages.push({ ...msg });
+          }
+        }
         messages.unshift({ role: 'system', content: fullSystemInstruction });
-        messages.push({ role: 'user', content: message || '' });
 
         const response = await withRetry(() => fetch(endpoint, {
           method: 'POST',
@@ -317,19 +355,29 @@ async function startServer() {
       } else {
         // Native Gemini
         const ai = new GoogleGenAI({ apiKey });
-        const contents = history.map((m: any) => ({
+        const rawContents = history.map((m: any) => ({
           role: m.role === 'model' || m.role === 'assistant' ? 'model' : 'user',
-          parts: [{ text: m.content || m.text || '' }]
+          parts: [{ text: m.content || m.text || ' ' }]
         }));
         
         let currentContent: any = message;
         if (imageUrl) {
           currentContent = [
-            { text: message },
+            { text: message || ' ' },
             { inlineData: { mimeType: "image/jpeg", data: imageUrl.split(',')[1] } }
           ];
         }
-        contents.push({ role: 'user', parts: Array.isArray(currentContent) ? currentContent : [{ text: currentContent }] });
+        rawContents.push({ role: 'user', parts: Array.isArray(currentContent) ? currentContent : [{ text: currentContent || ' ' }] });
+
+        // Merge consecutive contents
+        const contents: any[] = [];
+        for (const content of rawContents) {
+          if (contents.length > 0 && contents[contents.length - 1].role === content.role) {
+            contents[contents.length - 1].parts.push(...content.parts);
+          } else {
+            contents.push({ ...content, parts: [...content.parts] });
+          }
+        }
 
         const response = await withRetry<GenerateContentResponse>(() => ai.models.generateContent({
           model: modelName,
@@ -338,6 +386,13 @@ async function startServer() {
             systemInstruction: fullSystemInstruction,
             temperature: apiSettings?.temperature || 0.7,
             maxOutputTokens: 2048,
+            safetySettings: [
+              { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+              { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+              { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+              { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+              { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_NONE' }
+            ] as any
           }
         }));
 

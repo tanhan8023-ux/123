@@ -57,20 +57,24 @@ export function ThemeSettingsScreen({ theme: initialTheme, onSave, onBack, onExp
   const [jsonError, setJsonError] = React.useState<string | null>(null);
   const [showCodeEditor, setShowCodeEditor] = React.useState(false);
 
+  // Live Preview / Auto-save
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      if (JSON.stringify(theme) !== JSON.stringify(initialTheme)) {
+        onSave(theme);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [theme, onSave, initialTheme]);
+
   React.useEffect(() => {
     if (!showCodeEditor) {
       setJsonCode(JSON.stringify(theme, null, 2));
     }
   }, [theme, showCodeEditor]);
 
-  const hasChanges = JSON.stringify(theme) !== JSON.stringify(initialTheme);
-
   const handleBack = () => {
-    if (hasChanges) {
-      setShowExitConfirm(true);
-    } else {
-      onBack();
-    }
+    onBack();
   };
 
   const handleSave = () => {
@@ -211,42 +215,12 @@ export function ThemeSettingsScreen({ theme: initialTheme, onSave, onBack, onExp
           <span className="text-[15px] -ml-1">桌面</span>
         </button>
         <h1 className="font-semibold text-neutral-900 text-[15px]">主题设置</h1>
-        <button onClick={handleSave} className="text-blue-500 font-semibold text-[15px] active:opacity-70 px-4">
-          保存
+        <button onClick={handleBack} className="text-blue-500 font-semibold text-[15px] active:opacity-70 px-4">
+          完成
         </button>
       </div>
 
-      {/* Exit Confirmation Modal */}
-      {showExitConfirm && (
-        <div className="absolute inset-0 z-[100] flex items-center justify-center p-6 bg-black/20 backdrop-blur-sm">
-          <div className="w-full max-w-[280px] bg-white/90 backdrop-blur-xl rounded-2xl overflow-hidden shadow-2xl border border-white/50">
-            <div className="p-5 text-center">
-              <h3 className="text-[17px] font-semibold text-neutral-900">保存更改？</h3>
-              <p className="text-[13px] text-neutral-600 mt-1">您有未保存的修改，是否在离开前保存？</p>
-            </div>
-            <div className="flex border-t border-neutral-200">
-              <button 
-                onClick={() => onBack()}
-                className="flex-1 py-3 text-[17px] text-red-500 font-medium active:bg-neutral-100 transition-colors border-r border-neutral-200"
-              >
-                不保存
-              </button>
-              <button 
-                onClick={handleSave}
-                className="flex-1 py-3 text-[17px] text-blue-500 font-semibold active:bg-neutral-100 transition-colors"
-              >
-                保存
-              </button>
-            </div>
-            <button 
-              onClick={() => setShowExitConfirm(false)}
-              className="w-full py-3 text-[15px] text-neutral-500 border-t border-neutral-200 active:bg-neutral-100 transition-colors"
-            >
-              取消
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Exit Confirmation Modal removed for auto-save */}
 
       <div 
         className="flex-1 p-4 overflow-y-auto space-y-6"

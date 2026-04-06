@@ -31,6 +31,7 @@ export function Phone({ children, onHomeClick, theme, hideHomeIndicator }: { chi
       {(theme.fontUrl || theme.globalCss) && (
         <style>
           {`
+            ${theme.globalCss || ''}
             ${theme.fontUrl ? `
             @font-face {
               font-family: 'CustomThemeFont';
@@ -40,7 +41,6 @@ export function Phone({ children, onHomeClick, theme, hideHomeIndicator }: { chi
               font-family: 'CustomThemeFont', sans-serif !important;
             }
             ` : ''}
-            ${theme.globalCss || ''}
           `}
         </style>
       )}
