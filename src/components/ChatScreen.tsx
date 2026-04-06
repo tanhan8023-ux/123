@@ -1162,7 +1162,7 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
 
   const theaterMessages = React.useMemo(() => {
     if (!activeTheaterScript || !currentPersona || currentGroupId) return [];
-    return messages.filter(m => m.personaId === currentPersona.id && m.theaterId === activeTheaterScript.title);
+    return messages.filter(m => m.personaId === currentPersona.id && m.theaterId === activeTheaterScript.title && !m.hidden);
   }, [messages, currentChatId, currentGroupId, activeTheaterScript, currentPersona]);
 
   const currentMessages = React.useMemo(() => {
@@ -1647,7 +1647,7 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
         }
 
         // Get the latest messages for context (including the ones sent during debounce)
-        let latestMessages = messagesRef.current.filter(m => m.personaId === personaForResponse.id && !m.groupId && m.theaterId === theaterId).slice(-50); // Limit context size
+        let latestMessages = messagesRef.current.filter(m => m.personaId === personaForResponse.id && !m.groupId && m.theaterId === theaterId && !m.hidden).slice(-50); // Limit context size
         
         // If we are responding to an image, we'll pass it directly to fetchAiResponse in the prompt turn
         // to ensure the AI associates the system prompt with the image correctly.
@@ -4933,16 +4933,8 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
                           
                           if (!hasHistory) {
                             // Trigger AI to start the scenario with "Text Mode" instructions ONLY if no history
-                            const startPrompt = `[系统指令：剧场模式（文字模式）开启。当前剧本是《${script.title}》。场景描述：${script.desc}。
-
-请采用“文字模式”进行表演：
-1. 包含丰富的动作描写、心理描写和环境描写。
-2. 描写内容请放在括号 ( ) 或星号 * * 中，或者直接作为叙述文字。
-3. 所有的对白内容必须包裹在双引号 “ ” 中。
-4. 保持沉浸感，不要跳出人设。
-
-请作为 ${currentPersona.name} 开启这个场景的第一句话。直接开始表演。]`;
-                            handleSend(startPrompt, 'text', undefined, undefined, undefined, undefined, script.title);
+                            const startPrompt = `[系统指令：剧场模式开启。请作为 ${currentPersona.name} 开启这个场景的第一句话。直接开始表演，不要重复指令。]`;
+                            handleSend(startPrompt, 'text', undefined, undefined, undefined, undefined, script.title, undefined, true);
                           }
                         }}
                         className="bg-white p-4 rounded-xl shadow-sm border border-neutral-200 flex items-center gap-4 active:bg-neutral-50 cursor-pointer transition-colors"
@@ -5020,8 +5012,8 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
                                   
                                   // Auto start
                                   setActiveTheaterScript(newScript);
-                                  const startPrompt = `[系统指令：剧场模式（文字模式）开启。当前剧本是《${newScript.title}》。场景描述：${newScript.desc}。请开始你的表演。]`;
-                                  handleSend(startPrompt, 'text', undefined, undefined, undefined, undefined, newScript.title);
+                                  const startPrompt = `[系统指令：剧场模式开启。请作为 ${currentPersona.name} 开启这个场景的第一句话。直接开始表演，不要重复指令。]`;
+                                  handleSend(startPrompt, 'text', undefined, undefined, undefined, undefined, newScript.title, undefined, true);
                                 }
                               }}
                               className="flex-1 py-3 rounded-xl font-bold text-white bg-emerald-500 shadow-lg shadow-emerald-500/30 active:scale-95 transition-transform disabled:opacity-50 disabled:shadow-none"
