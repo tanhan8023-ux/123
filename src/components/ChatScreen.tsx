@@ -492,30 +492,8 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
     // Don't evaluate the same message multiple times
     if (lastEvaluatedGroupMsgId.current === lastMsg.id) return;
 
-    // Mark this message as evaluated so we don't re-trigger on other state changes
+    // Mark as read by evaluated message
     lastEvaluatedGroupMsgId.current = lastMsg.id;
-
-    // Mark as read by all online members immediately (even if the message is old)
-    const otherMemberIds = currentGroup.memberIds.filter(id => id !== 'user');
-    if (otherMemberIds.length > 0) {
-      const onlineMemberIds = otherMemberIds.filter(id => {
-        const p = personas.find(p => p.id === id);
-        return p && !p.isOffline;
-      });
-
-      if (onlineMemberIds.length > 0) {
-        setMessages(prev => prev.map(m => {
-          if (m.groupId === currentGroupId && (m.id === lastMsg.id || (m.createdAt || 0) <= (lastMsg.createdAt || 0))) {
-            const currentReadBy = m.readBy || [];
-            const newReadBy = Array.from(new Set([...currentReadBy, ...onlineMemberIds]));
-            if (newReadBy.length !== currentReadBy.length) {
-              return { ...m, readBy: newReadBy };
-            }
-          }
-          return m;
-        }));
-      }
-    }
 
     // Only trigger spontaneous reply if the last message was sent recently (e.g., within 5 minutes)
     if (Date.now() - (lastMsg.createdAt || 0) > 300000) return;
@@ -564,7 +542,7 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
         const p = personas.find(p => p.id === id);
         return p && lastMsg.text.includes(`@${p.name}`);
       }).length;
-      const maxReplies = Math.max(mentionedCount, Math.random() > 0.7 ? 2 : 1); // 30% chance for 2 people to reply, or all mentioned
+      const maxReplies = Math.max(mentionedCount, Math.random() > 0.5 ? 2 : 1); // 50% chance for 2 people to reply, or all mentioned
 
       for (const memberId of shuffledMembers) {
         if (replyCount >= maxReplies) break;
@@ -574,6 +552,9 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
 
         const persona = personas.find(p => p.id === memberId);
         if (!persona) continue;
+
+        // Simulate a small delay for each member "reading" the message
+        await new Promise(resolve => setTimeout(resolve, Math.random() * 1000 + 500));
 
         // Ask this persona if they want to reply
         const contextMessages = messagesRef.current
