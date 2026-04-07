@@ -2655,7 +2655,7 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
           {activeTab === 'chat' && (currentChatId || currentGroupId) && (
             <div className="text-[11px] text-neutral-500">
               {(() => {
-                if (isTyping) return '对方正在输入...';
+                if (isTyping || (currentChatId && typingPersonas[currentChatId])) return '对方正在输入...';
                 if (currentGroupId) return `${currentGroup?.memberIds.length || 0} 位成员`;
                 return currentPersona?.isOffline ? '离线' : '在线';
               })()}
@@ -4913,8 +4913,7 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
                           const hasHistory = messages.some(m => m.personaId === currentPersona.id && m.theaterId === script.title);
                           
                           if (!hasHistory) {
-                            // Trigger AI to start the scenario with "Text Mode" instructions ONLY if no history
-                            const startPrompt = `[系统指令：剧场模式开启。请作为 ${currentPersona.name} 开启这个场景的第一句话。直接开始表演，不要重复指令。]`;
+                            const startPrompt = `[系统指令：剧场模式开启。当前剧本：${script.title}。场景设定：${script.desc}。请作为 ${currentPersona.name} 开启这个场景的第一句话。直接开始表演，不要重复指令。]`;
                             handleSend(startPrompt, 'text', undefined, undefined, undefined, undefined, script.title, undefined, true);
                           }
                         }}
@@ -4993,7 +4992,8 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
                                   
                                   // Auto start
                                   setActiveTheaterScript(newScript);
-                                  const startPrompt = `[系统指令：剧场模式开启。请作为 ${currentPersona.name} 开启这个场景的第一句话。直接开始表演，不要重复指令。]`;
+                                  
+                                  const startPrompt = `[系统指令：剧场模式开启。当前剧本：${newScript.title}。场景设定：${newScript.desc}。请作为 ${currentPersona.name} 开启这个场景的第一句话。直接开始表演，不要重复指令。]`;
                                   handleSend(startPrompt, 'text', undefined, undefined, undefined, undefined, newScript.title, undefined, true);
                                 }
                               }}
@@ -5308,8 +5308,25 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
                 </div>
 
                 {/* Input Area */}
-                <div className="p-6 pb-12 z-20 bg-black/90 backdrop-blur-xl border-t border-white/10 shrink-0">
-                  {/* Typing Indicator Overlay (Inside Input Area for visibility) */}
+                <div className="p-6 pb-12 z-20 bg-black/90 backdrop-blur-xl border-t border-white/10 shrink-0 relative">
+                  {/* Typing Indicator Overlay */}
+                  <AnimatePresence>
+                    {(isTyping || (currentPersona && typingPersonas[currentPersona.id])) && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 10 }}
+                        className="absolute -top-12 left-6 bg-black/60 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 flex items-center gap-2"
+                      >
+                        <div className="flex gap-1">
+                          <motion.div className="w-1.5 h-1.5 bg-white/70 rounded-full" animate={{ y: [0, -3, 0] }} transition={{ duration: 0.6, repeat: Infinity, delay: 0 }} />
+                          <motion.div className="w-1.5 h-1.5 bg-white/70 rounded-full" animate={{ y: [0, -3, 0] }} transition={{ duration: 0.6, repeat: Infinity, delay: 0.2 }} />
+                          <motion.div className="w-1.5 h-1.5 bg-white/70 rounded-full" animate={{ y: [0, -3, 0] }} transition={{ duration: 0.6, repeat: Infinity, delay: 0.4 }} />
+                        </div>
+                        <span className="text-xs text-white/70 font-medium tracking-wider">对方正在输入...</span>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                   <div className="relative flex items-center gap-3">
                     <input 
                       type="text"

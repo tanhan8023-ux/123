@@ -779,30 +779,36 @@ export default function App() {
           
           const response = await fetch(`/api/messages/${encodeURIComponent(personaId)}?lastTimestamp=${lastTimestamp}`);
           if (response.ok) {
-            const text = await response.text();
-            let serverMsgs;
-            try {
-              serverMsgs = JSON.parse(text);
-            } catch (e) {
-              console.error("Failed to parse JSON for persona:", personaId, "Response:", text);
-              continue;
-            }
-            if (serverMsgs.length > 0) {
-              setMessages(prev => {
-                const newMsgs = [...prev];
-                let hasNew = false;
-                serverMsgs.forEach((sm: any) => {
-                  if (!newMsgs.find(m => m.id === sm.id)) {
-                    const isFromCurrentChat = currentChatId === personaId && currentScreen === 'chat' && !isLocked;
-                    newMsgs.push({
-                      ...sm,
-                      isRead: isFromCurrentChat
-                    });
-                    hasNew = true;
-                  }
+            const contentType = response.headers.get("content-type");
+            if (contentType && contentType.includes("application/json")) {
+              const text = await response.text();
+              let serverMsgs;
+              try {
+                serverMsgs = JSON.parse(text);
+              } catch (e) {
+                console.error("Failed to parse JSON for persona:", personaId, "Response:", text);
+                continue;
+              }
+              if (serverMsgs.length > 0) {
+                setMessages(prev => {
+                  const newMsgs = [...prev];
+                  let hasNew = false;
+                  serverMsgs.forEach((sm: any) => {
+                    if (!newMsgs.find(m => m.id === sm.id)) {
+                      const isFromCurrentChat = currentChatId === personaId && currentScreen === 'chat' && !isLocked;
+                      newMsgs.push({
+                        ...sm,
+                        isRead: isFromCurrentChat
+                      });
+                      hasNew = true;
+                    }
+                  });
+                  return hasNew ? newMsgs : prev;
                 });
-                return hasNew ? newMsgs : prev;
-              });
+              }
+            } else {
+              // Not JSON, likely the loading page
+              console.warn("Received non-JSON response from /api/messages, server might be starting.");
             }
           }
         } catch (e: any) {
@@ -1865,8 +1871,13 @@ ${recentMsgs}`;
             });
 
             if (serverResponse.ok) {
-              const data = await serverResponse.json();
-              responseText = data.responseText;
+              const contentType = serverResponse.headers.get("content-type");
+              if (contentType && contentType.includes("application/json")) {
+                const data = await serverResponse.json();
+                responseText = data.responseText;
+              } else {
+                throw new Error("Server returned non-JSON response");
+              }
             } else {
               throw new Error(`Server API Error: ${serverResponse.status}`);
             }
@@ -2041,7 +2052,8 @@ ${recentMsgs}`;
           msgType: 'text',
           timestamp: new Date().toLocaleTimeString(),
           createdAt: Date.now(),
-          isRead: true
+          isRead: true,
+          theaterId
         };
         setMessages(prev => [...prev, errorMsg]);
       } finally {
@@ -2346,8 +2358,13 @@ ${phoneData}
           });
 
           if (response.ok) {
-            const data = await response.json();
-            responseText = data.responseText;
+            const contentType = response.headers.get("content-type");
+            if (contentType && contentType.includes("application/json")) {
+              const data = await response.json();
+              responseText = data.responseText;
+            } else {
+              throw new Error("Server returned non-JSON response");
+            }
           }
         } catch (e) {
           console.warn("Test push API call failed, using fallback text:", e);
