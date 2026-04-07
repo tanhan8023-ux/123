@@ -49,7 +49,7 @@ export async function generateLyrics(
   return responseText || "[00:00.00] 抱歉，未找到该歌曲的歌词。";
 }
 
-export async function withRetry<T>(fn: () => Promise<T>, maxRetries = 12, initialDelay = 3000): Promise<T> {
+export async function withRetry<T>(fn: () => Promise<T>, maxRetries = 6, initialDelay = 2000): Promise<T> {
   let retries = 0;
   while (true) {
     try {
@@ -72,15 +72,14 @@ export async function withRetry<T>(fn: () => Promise<T>, maxRetries = 12, initia
 
       if ((isRateLimit || isNetworkError) && retries < maxRetries) {
         retries++;
-        // Exponential backoff with jitter
-        const delay = initialDelay * Math.pow(2, retries - 1) + Math.random() * 1000;
+        // Exponential backoff with jitter, capped at 15s
+        const delay = Math.min(initialDelay * Math.pow(2, retries - 1), 15000) + Math.random() * 1000;
         const reason = isRateLimit ? "Rate limit exceeded" : "Network error/Server error";
         console.warn(`${reason}. Retrying in ${Math.round(delay)}ms... (Attempt ${retries}/${maxRetries})`);
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
       
-      // If it's a rate limit error and we've exhausted retries, provide a cleaner message
       if (isRateLimit) {
         throw new Error("AI 响应过快，请稍后再试 (Rate limit exceeded)");
       }
@@ -133,27 +132,36 @@ async function callAi(params: {
       messages.unshift({ role: 'system', content: params.systemInstruction });
     }
     const response = await withRetry(async () => {
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${params.apiKey}`
-        },
-        body: JSON.stringify({
-          model: params.model,
-          messages,
-          temperature: params.temperature,
-          stream: false
-        }),
-        signal: params.signal
-      });
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        const err = new Error(errorData.error?.message || `API Error: ${res.status}`);
-        (err as any).status = res.status;
-        throw err;
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), 60000); // 60s timeout
+      
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${params.apiKey}`
+          },
+          body: JSON.stringify({
+            model: params.model,
+            messages,
+            temperature: params.temperature,
+            stream: false
+          }),
+          signal: params.signal || controller.signal
+        });
+        clearTimeout(id);
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          const err = new Error(errorData.error?.message || `API Error: ${res.status}`);
+          (err as any).status = res.status;
+          throw err;
+        }
+        return res;
+      } catch (e) {
+        clearTimeout(id);
+        throw e;
       }
-      return res;
     });
     const data = await response.json();
     return data.choices?.[0]?.message?.content || "";

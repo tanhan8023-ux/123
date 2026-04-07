@@ -68,7 +68,6 @@ import { storageService } from './services/storageService';
 import { getPhoneData } from './services/phoneService';
 import { fetchAiResponse, generatePersonaStatus, checkIfPersonaIsOffline, generateUserRemark, generateDiaryEntry, generateXHSPost, withRetry } from './services/aiService';
 import { lyricService } from './services/lyricService';
-import { repairJson } from './utils';
 import { processAiResponseParts, cleanContextMessage } from './utils/chatUtils';
 
 export default function App() {
@@ -1013,6 +1012,28 @@ export default function App() {
   useEffect(() => { debouncedSave('orders', orders); }, [orders, isReady]);
   useEffect(() => { debouncedSave('groups', groups); }, [groups, isReady]);
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      setTypingPersonas(prev => {
+        const next = { ...prev };
+        let changed = false;
+        Object.keys(next).forEach(id => {
+          // If a persona is stuck typing for more than 45 seconds, clear it
+          // We don't have a 'typingStartedAt' state, but we can assume if it's true, 
+          // we should eventually clear it if no new messages are coming.
+          // Actually, let's just clear all typing states if pendingRequests is 0 as a safety.
+          if (next[id] && pendingRequests.current[id] === 0) {
+            next[id] = false;
+            changed = true;
+          }
+        });
+        return changed ? next : prev;
+      });
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
   const aiRef = useRef<GoogleGenAI | null>(null);
   const prevMessagesLength = useRef(messages.length);
   const isFirstRunAfterReady = useRef(true);
@@ -1640,6 +1661,7 @@ export default function App() {
     // Clear existing timeout for this persona
     if (aiResponseTimeouts.current[personaId]) {
       clearTimeout(aiResponseTimeouts.current[personaId]);
+      pendingRequests.current[personaId] = Math.max(0, (pendingRequests.current[personaId] || 0) - 1);
     }
     
     // Abort existing fetch request for this persona
@@ -1653,16 +1675,17 @@ export default function App() {
     setTypingPersonas(prev => ({ ...prev, [personaId]: true }));
 
     const executeAiResponse = async () => {
-      // Prevent duplicate processing of the same message ID
-      if (processedUserMsgIds.current.has(userMsgId)) {
-        console.log(`[AI] Skipping duplicate trigger for message ${userMsgId}`);
-        return;
-      }
-      processedUserMsgIds.current.add(userMsgId);
-      
       delete pendingAiCallbacks.current[personaId];
       const currentTimeoutId = aiResponseTimeouts.current[personaId];
+      
       try {
+        // Prevent duplicate processing of the same message ID
+        if (processedUserMsgIds.current.has(userMsgId)) {
+          console.log(`[AI] Skipping duplicate trigger for message ${userMsgId}`);
+          return;
+        }
+        processedUserMsgIds.current.add(userMsgId);
+        
         // Wait until the user finishes typing, max 10 seconds
         let waitTime = 0;
         while ((window as any).isUserTyping && !document.hidden && waitTime < 10000) {
@@ -1944,7 +1967,18 @@ ${recentMsgs}`;
           setMessages(prev => prev.map(m => m.id === userMsgId ? { ...m, imageDescription } : m));
         }
 
-        if (responseText && responseText.includes('[NO_REPLY]')) return;
+        if (!responseText || responseText.trim() === "") {
+          throw new Error("AI 返回了空响应，请重试。");
+        }
+
+        // Only allow [NO_REPLY] for proactive messages, not for direct user messages
+        if (responseText.includes('[NO_REPLY]')) {
+          console.log(`AI (${targetPersona.name}) tried to stay silent with [NO_REPLY], but this is a direct message. Ignoring...`);
+          responseText = responseText.replace('[NO_REPLY]', '').trim();
+          if (!responseText) {
+            throw new Error("AI 决定不回复，请尝试换个话题。");
+          }
+        }
         
         const processed = processAiResponseParts(responseText, userProfile, undefined, targetPersona.isSegmentResponse || worldbook.forceSegmentResponse, !!theaterId);
         
