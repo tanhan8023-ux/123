@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { ChevronLeft, Settings, Plus, Trash2, Image as ImageIcon, Download, Upload } from 'lucide-react';
 import { ApiSettings, Persona, UserProfile, ThemeSettings } from '../types';
 import { generateId } from '../utils/id';
+import { repairJson } from '../utils';
 
 interface Props {
   settings: ApiSettings;
@@ -245,14 +246,23 @@ export function ApiSettingsScreen({ settings, personas: initialPersonas, userPro
   };
 
   const handleExportPersonas = () => {
-    const dataStr = JSON.stringify(personas, null, 2);
-    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-    const exportFileDefaultName = `personas_backup_${new Date().toISOString().split('T')[0]}.json`;
-    const linkElement = document.createElement('a');
-    linkElement.setAttribute('href', dataUri);
-    linkElement.setAttribute('download', exportFileDefaultName);
-    linkElement.click();
-    setLogs(prev => [...prev, '> Personas exported successfully.']);
+    try {
+      const dataStr = JSON.stringify(personas, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const exportFileDefaultName = `personas_backup_${new Date().toISOString().split('T')[0]}.json`;
+      const linkElement = document.createElement('a');
+      linkElement.href = url;
+      linkElement.download = exportFileDefaultName;
+      document.body.appendChild(linkElement);
+      linkElement.click();
+      document.body.removeChild(linkElement);
+      URL.revokeObjectURL(url);
+      setLogs(prev => [...prev, '> Personas exported successfully.']);
+    } catch (err) {
+      console.error("Export personas failed", err);
+      setLogs(prev => [...prev, '> Error exporting personas.']);
+    }
   };
 
   const handleImportPersonas = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -260,8 +270,18 @@ export function ApiSettingsScreen({ settings, personas: initialPersonas, userPro
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (event) => {
+      const jsonString = event.target?.result as string;
       try {
-        const importedPersonas = JSON.parse(event.target?.result as string);
+        let importedPersonas;
+        try {
+          importedPersonas = JSON.parse(jsonString);
+        } catch (e) {
+          console.warn("Persona JSON parse failed, attempting repair...", e);
+          const repaired = repairJson(jsonString);
+          importedPersonas = JSON.parse(repaired);
+          setLogs(prev => [...prev, '> Warning: Persona file was truncated and repaired.']);
+        }
+
         if (Array.isArray(importedPersonas)) {
           setPersonas(importedPersonas);
           setLogs(prev => [...prev, '> Personas imported successfully.']);
@@ -269,8 +289,10 @@ export function ApiSettingsScreen({ settings, personas: initialPersonas, userPro
           setLogs(prev => [...prev, '> Invalid personas file format.']);
         }
       } catch (err) {
+        console.error("Import personas failed", err);
         setLogs(prev => [...prev, '> Error parsing personas file.']);
       }
+      e.target.value = ''; // Reset input
     };
     reader.readAsText(file);
   };

@@ -3,6 +3,7 @@ import { ChevronLeft, BookOpen, Download, Upload, Users, Image as ImageIcon, Ref
 import { WorldbookSettings, Persona, ApiSettings, UserProfile, ThemeSettings } from '../types';
 import { GoogleGenAI } from '@google/genai';
 import { fetchAiResponse } from '../services/aiService';
+import { repairJson } from '../utils';
 
 interface Props {
   worldbook: WorldbookSettings;
@@ -73,8 +74,17 @@ export function PersonaScreen({ worldbook: initialWorldbook, personas: initialPe
     if (file) {
       const reader = new FileReader();
       reader.onload = (event) => {
+        const jsonString = event.target?.result as string;
         try {
-          const imported = JSON.parse(event.target?.result as string);
+          let imported;
+          try {
+            imported = JSON.parse(jsonString);
+          } catch (e) {
+            console.warn("Worldbook JSON parse failed, attempting repair...", e);
+            const repaired = repairJson(jsonString);
+            imported = JSON.parse(repaired);
+          }
+
           if (imported && typeof imported === 'object') {
             setWorldbook({
               jailbreakPrompt: imported.jailbreakPrompt || '',
@@ -88,6 +98,7 @@ export function PersonaScreen({ worldbook: initialWorldbook, personas: initialPe
             throw new Error('Invalid format');
           }
         } catch (err) {
+          console.error("Import worldbook failed", err);
           alert('导入失败：文件格式不正确');
         }
         e.target.value = ''; // Reset input
@@ -97,13 +108,21 @@ export function PersonaScreen({ worldbook: initialWorldbook, personas: initialPe
   };
 
   const handleExportWorldbook = () => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(worldbook, null, 2));
-    const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", "worldbook.json");
-    document.body.appendChild(downloadAnchorNode);
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
+    try {
+      const dataStr = JSON.stringify(worldbook, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const downloadAnchorNode = document.createElement('a');
+      downloadAnchorNode.href = url;
+      downloadAnchorNode.download = "worldbook.json";
+      document.body.appendChild(downloadAnchorNode);
+      downloadAnchorNode.click();
+      document.body.removeChild(downloadAnchorNode);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Export worldbook failed", err);
+      alert("导出失败");
+    }
   };
 
   const handleUpdatePersona = (id: string, field: keyof Persona, value: any) => {

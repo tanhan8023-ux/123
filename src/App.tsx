@@ -13,6 +13,7 @@ import { XHSScreen } from './components/XHSScreen';
 import { TreeHoleScreen } from './components/TreeHoleScreen';
 import { TaobaoScreen } from './components/TaobaoScreen';
 import { generateId } from './utils/id';
+import { repairJson } from './utils';
 import { FoodDeliveryScreen } from './components/FoodDeliveryScreen';
 import { BartenderGame } from './components/BartenderGame';
 import { AiPhonesScreen } from './components/AiPhonesScreen';
@@ -1535,26 +1536,29 @@ export default function App() {
     try {
       const keys = [
         'userProfile', 'personas', 'apiSettings', 'theme', 'worldbook', 
-        'messages', 'moments', 'xhsPosts', 'followedAuthorIds', 'blockedAuthorIds',
-        'treeHolePrivateChats', 'treeHolePersonas', 'treeHolePosts', 'treeHoleNotifications'
+        'messages', 'moments', 'xhsPosts', 'xhsPrivateChats', 'treeHolePrivateChats', 
+        'treeHolePersonas', 'treeHolePosts', 'treeHoleNotifications',
+        'followedAuthorIds', 'blockedAuthorIds', 'orders', 'groups', 'callHistory',
+        'local_songs_metadata', 'local_playlists'
       ];
       const data: Record<string, any> = {};
       for (const key of keys) {
         data[key] = await localforage.getItem(key);
       }
       
-      const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+      const jsonString = JSON.stringify(data);
+      const blob = new Blob([jsonString], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `wechat_simulator_backup_${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `wechat_simulator_full_backup_${new Date().toISOString().split('T')[0]}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (e) {
       console.error("Export failed", e);
-      alert("导出失败");
+      alert("导出失败，可能是数据量过大导致内存不足。");
     }
   };
 
