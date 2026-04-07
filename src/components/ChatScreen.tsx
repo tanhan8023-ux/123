@@ -440,33 +440,37 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
 
             // Send segments one by one with real delay to allow interleaving
             (async () => {
-              for (let i = 0; i < texts.length; i++) {
-                const text = texts[i].replace('[NO_REPLY]', '').trim();
-                if (!text) continue;
-                
-                // Simulate typing
-                setIsTyping(true);
-                await new Promise(r => setTimeout(r, 1000 + text.length * 30));
-                setIsTyping(false);
+              try {
+                for (let i = 0; i < texts.length; i++) {
+                  const text = texts[i].replace('[NO_REPLY]', '').trim();
+                  if (!text) continue;
+                  
+                  // Simulate typing
+                  setIsTyping(true);
+                  await new Promise(r => setTimeout(r, 1000 + text.length * 30));
+                  setIsTyping(false);
 
-                const aiMsg: Message = {
-                  id: generateId(),
-                  personaId: persona.id,
-                  groupId: currentGroupId,
-                  role: 'model',
-                  text: text,
-                  msgType: 'text',
-                  timestamp: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }),
-                  isRead: false,
-                  createdAt: Date.now(),
-                };
-                
-                setMessages(prev => [...prev, aiMsg]);
+                  const aiMsg: Message = {
+                    id: generateId(),
+                    personaId: persona.id,
+                    groupId: currentGroupId,
+                    role: 'model',
+                    text: text,
+                    msgType: 'text',
+                    timestamp: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }),
+                    isRead: false,
+                    createdAt: Date.now(),
+                  };
+                  
+                  setMessages(prev => [...prev, aiMsg]);
 
-                // Wait between segments
-                if (i < texts.length - 1) {
-                  await new Promise(r => setTimeout(r, 2000 + Math.random() * 3000));
+                  // Wait between segments
+                  if (i < texts.length - 1) {
+                    await new Promise(r => setTimeout(r, 2000 + Math.random() * 3000));
+                  }
                 }
+              } finally {
+                setIsTyping(false);
               }
             })();
           }
@@ -653,64 +657,68 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
 
               // Send segments one by one with real delay to allow interleaving
               (async () => {
-                for (let i = 0; i < texts.length; i++) {
-                  // Wait if user is typing
-                  let typeWaitTime = 0;
-                  while ((window as any).isUserTyping && !document.hidden && typeWaitTime < 10000) {
-                    await new Promise(resolve => setTimeout(resolve, 500));
-                    typeWaitTime += 500;
+                try {
+                  for (let i = 0; i < texts.length; i++) {
+                    // Wait if user is typing
+                    let typeWaitTime = 0;
+                    while ((window as any).isUserTyping && !document.hidden && typeWaitTime < 10000) {
+                      await new Promise(resolve => setTimeout(resolve, 500));
+                      typeWaitTime += 500;
+                      if (abortController.signal.aborted) {
+                        console.log(`Group spontaneous reply typing aborted for ${persona.name} while waiting for user`);
+                        return;
+                      }
+                    }
+
                     if (abortController.signal.aborted) {
-                      console.log(`Group spontaneous reply typing aborted for ${persona.name} while waiting for user`);
+                      console.log(`Group spontaneous reply typing aborted for ${persona.name}`);
                       return;
                     }
-                  }
 
-                  if (abortController.signal.aborted) {
-                    console.log(`Group spontaneous reply typing aborted for ${persona.name}`);
-                    return;
-                  }
+                    const text = texts[i];
+                    
+                    // Simulate typing
+                    setIsTyping(true);
+                    await new Promise(r => setTimeout(r, 300 + text.length * 10));
+                    setIsTyping(false);
 
-                  const text = texts[i];
-                  
-                  // Simulate typing
-                  setIsTyping(true);
-                  await new Promise(r => setTimeout(r, 300 + text.length * 10));
-                  setIsTyping(false);
+                    if (abortController.signal.aborted) {
+                      console.log(`Group spontaneous reply typing aborted for ${persona.name}`);
+                      return;
+                    }
 
-                  if (abortController.signal.aborted) {
-                    console.log(`Group spontaneous reply typing aborted for ${persona.name}`);
-                    return;
-                  }
-
-                  const aiMsg: Message = {
-                    id: generateId(),
-                    personaId: persona.id,
-                    groupId: currentGroupId,
-                    role: 'model',
-                    text: text,
-                    msgType: 'text',
-                    timestamp: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }),
-                    isRead: false,
-                    createdAt: Date.now(),
-                  };
-                  
-                  setMessages(prev => {
-                    // Mark previous messages as read by this persona
-                    const updatedMessages = prev.map(m => {
-                      if (m.groupId === currentGroupId && (m.createdAt || 0) <= (aiMsg.createdAt || 0)) {
-                        if (!m.readBy?.includes(persona.id)) {
-                          return { ...m, readBy: Array.from(new Set([...(m.readBy || []), persona.id])) };
+                    const aiMsg: Message = {
+                      id: generateId(),
+                      personaId: persona.id,
+                      groupId: currentGroupId,
+                      role: 'model',
+                      text: text,
+                      msgType: 'text',
+                      timestamp: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }),
+                      isRead: false,
+                      createdAt: Date.now(),
+                    };
+                    
+                    setMessages(prev => {
+                      // Mark previous messages as read by this persona
+                      const updatedMessages = prev.map(m => {
+                        if (m.groupId === currentGroupId && (m.createdAt || 0) <= (aiMsg.createdAt || 0)) {
+                          if (!m.readBy?.includes(persona.id)) {
+                            return { ...m, readBy: Array.from(new Set([...(m.readBy || []), persona.id])) };
+                          }
                         }
-                      }
-                      return m;
+                        return m;
+                      });
+                      return [...updatedMessages, aiMsg];
                     });
-                    return [...updatedMessages, aiMsg];
-                  });
 
-                  // Wait between segments
-                  if (i < texts.length - 1) {
-                    await new Promise(r => setTimeout(r, 500 + Math.random() * 1000));
+                    // Wait between segments
+                    if (i < texts.length - 1) {
+                      await new Promise(r => setTimeout(r, 500 + Math.random() * 1000));
+                    }
                   }
+                } finally {
+                  setIsTyping(false);
                 }
               })();
               
