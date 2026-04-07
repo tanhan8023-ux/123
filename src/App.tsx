@@ -1169,11 +1169,14 @@ export default function App() {
             content: cleanContextMessage(m.text)
           }));
 
-        const [newStatus, isOffline, newUserRemark] = await Promise.all([
-          generatePersonaStatus(targetPersona, apiSettings, worldbook, userProfile, aiRef),
-          checkIfPersonaIsOffline(targetPersona, apiSettings, worldbook, userProfile, aiRef, contextMessages),
-          generateUserRemark(targetPersona, apiSettings, worldbook, userProfile, aiRef)
-        ]);
+        // Run sequential with small delays to avoid hitting rate limits
+        const newStatus = await generatePersonaStatus(targetPersona, apiSettings, worldbook, userProfile, aiRef);
+        await new Promise(r => setTimeout(r, 1000 + Math.random() * 1000));
+        
+        const isOffline = await checkIfPersonaIsOffline(targetPersona, apiSettings, worldbook, userProfile, aiRef, contextMessages);
+        await new Promise(r => setTimeout(r, 1000 + Math.random() * 1000));
+        
+        const newUserRemark = await generateUserRemark(targetPersona, apiSettings, worldbook, userProfile, aiRef);
 
         setPersonas(prev => prev.map(p => p.id === targetPersona!.id ? { 
           ...p, 
@@ -2065,12 +2068,14 @@ ${recentMsgs}`;
            }, 3000);
         }
 
-        // Update offline status
-        checkIfPersonaIsOffline(targetPersona, apiSettings, worldbook, userProfile, aiRef, [...contextMessages, { role: 'assistant', content: responseText }] as any)
-          .then(isOffline => {
-            setPersonas(prev => prev.map(p => p.id === personaId ? { ...p, isOffline } : p));
-          })
-          .catch(() => {});
+        // Update offline status - stagger to avoid rate limits
+        setTimeout(() => {
+          checkIfPersonaIsOffline(targetPersona, apiSettings, worldbook, userProfile, aiRef, [...contextMessages, { role: 'assistant', content: responseText }] as any)
+            .then(isOffline => {
+              setPersonas(prev => prev.map(p => p.id === personaId ? { ...p, isOffline } : p));
+            })
+            .catch(() => {});
+        }, 5000 + Math.random() * 3000);
 
       } catch (error: any) {
         if (error.name === 'AbortError') {

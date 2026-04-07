@@ -49,7 +49,7 @@ export async function generateLyrics(
   return responseText || "[00:00.00] 抱歉，未找到该歌曲的歌词。";
 }
 
-export async function withRetry<T>(fn: () => Promise<T>, maxRetries = 4, initialDelay = 1000): Promise<T> {
+export async function withRetry<T>(fn: () => Promise<T>, maxRetries = 6, initialDelay = 2000): Promise<T> {
   let retries = 0;
   while (true) {
     try {
@@ -72,8 +72,10 @@ export async function withRetry<T>(fn: () => Promise<T>, maxRetries = 4, initial
 
       if ((isRateLimit || isNetworkError) && retries < maxRetries) {
         retries++;
-        // Exponential backoff with jitter, capped at 15s
-        const delay = Math.min(initialDelay * Math.pow(2, retries - 1), 15000) + Math.random() * 1000;
+        // Exponential backoff with jitter, capped at 20s
+        // For rate limits, we use a longer initial delay
+        const baseDelay = isRateLimit ? Math.max(initialDelay, 3000) : initialDelay;
+        const delay = Math.min(baseDelay * Math.pow(2, retries - 1), 20000) + Math.random() * 2000;
         const reason = isRateLimit ? "Rate limit exceeded" : "Network error/Server error";
         console.warn(`${reason}. Retrying in ${Math.round(delay)}ms... (Attempt ${retries}/${maxRetries})`);
         await new Promise(resolve => setTimeout(resolve, delay));
@@ -238,13 +240,14 @@ AI说：${aiResponse}
 请提取关键信息（如爱好、习惯、重要事件等），以JSON数组格式输出，如：["喜欢吃辣", "家里有只猫"]。如果没有新信息，输出空数组 []。`;
 
   try {
-    const text = await callAi({
+    const text = await withRetry(() => callAi({
       apiKey: apiKey as string,
       apiUrl: apiSettings.apiUrl,
       model: "gemini-3-flash-preview",
       messages: [{ role: "user", content: prompt }],
       aiRef
-    });
+    }), 3, 5000); // Fewer retries, longer delay for background task
+    
     const memories = JSON.parse(text.match(/\[[\s\S]*\]/)?.[0] || "[]");
     if (Array.isArray(memories) && memories.length > 0) {
       for (const m of memories) {
@@ -253,8 +256,9 @@ AI说：${aiResponse}
         }
       }
     }
-  } catch (e) {
-    console.error("Memory extraction failed:", e);
+  } catch (e: any) {
+    // Fail silently for background tasks to avoid cluttering logs/UI
+    console.log("Background memory extraction skipped:", e?.message || e);
   }
 }
 
@@ -503,7 +507,14 @@ export async function fetchAiResponse(
       signal
     });
 
-    if (!isSystemTask) await extractAndSaveMemory(promptText, text, aiRef, effectiveApiSettings);
+    if (!isSystemTask) {
+      // Stagger memory extraction to avoid concurrent requests hitting rate limits
+      setTimeout(() => {
+        extractAndSaveMemory(promptText, text, aiRef, effectiveApiSettings).catch(e => {
+          console.error("Memory extraction background task failed:", e);
+        });
+      }, 3000 + Math.random() * 2000);
+    }
     return { responseText: processAiResponse(text, persona.name, disableActions || !showActions, isTheaterMode), imageDescription };
   } catch (error: any) {
     if (error.name !== 'AbortError') {

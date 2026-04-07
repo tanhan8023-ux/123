@@ -557,8 +557,8 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
         const persona = personas.find(p => p.id === memberId);
         if (!persona) continue;
 
-        // Simulate a small delay for each member "reading" the message
-        await new Promise(resolve => setTimeout(resolve, Math.random() * 1000 + 500));
+        // Simulate a small delay for each member "reading" the message - stagger to avoid rate limits
+        await new Promise(resolve => setTimeout(resolve, Math.random() * 2000 + 1000));
 
         // Ask this persona if they want to reply
         const contextMessages = messagesRef.current
@@ -760,6 +760,9 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
     setIsTyping(true);
     
     try {
+      // Stagger to avoid rate limits
+      await new Promise(r => setTimeout(r, 1000 + Math.random() * 2000));
+      
       // Construct prompt for "Unread Reaction"
       const timeSinceRead = unreadPesterCount === 0 ? "3分钟" : `${3 + unreadPesterCount * 3}分钟`;
       
