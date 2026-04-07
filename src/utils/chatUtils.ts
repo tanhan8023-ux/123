@@ -9,7 +9,7 @@ export const cleanContextMessage = (text: string) => {
   return cleaned;
 };
 
-export const processAiResponseParts = (responseText: string | { responseText: string }, userProfile: UserProfile, aiQuotedId?: string, isSegmentResponse?: boolean) => {
+export const processAiResponseParts = (responseText: string | { responseText: string }, userProfile: UserProfile, aiQuotedId?: string, isSegmentResponse?: boolean, isTheaterMode?: boolean) => {
   let text = typeof responseText === 'string' ? responseText : (responseText?.responseText || '');
   
   // Extract and remove ||NEXT:xxx|| tags
@@ -117,7 +117,7 @@ export const processAiResponseParts = (responseText: string | { responseText: st
       // Clean any stray ID tags or other markers
       let cleanText = trimmedPart.replace(/[\[［]ID[:：]\s*[^\]］]+[\]］]/gi, '').trim();
       
-      if (userProfile.enableActionDescriptions === false) {
+      if (userProfile.enableActionDescriptions === false && !isTheaterMode) {
         cleanText = cleanText.replace(/\([^)]*\)/g, '').replace(/（[^）]*）/g, '').trim();
       }
       

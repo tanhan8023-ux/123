@@ -32,14 +32,13 @@ async function withRetry<T>(fn: () => Promise<T>, maxRetries = 8, initialDelay =
     try {
       return await fn();
     } catch (error: any) {
-      const errorMsg = error.message?.toLowerCase() || "";
+      const errorMsg = (error?.message || error?.toString() || "").toLowerCase();
       const isRateLimit = errorMsg.includes('rate limit') || 
                           errorMsg.includes('quota') ||
                           errorMsg.includes('429') ||
                           errorMsg.includes('exhausted') ||
-                          error.status === 429 ||
-                          (error.response?.status === 429) ||
-                          (typeof error.message === 'string' && error.message.includes('429'));
+                          error?.status === 429 ||
+                          (error?.response?.status === 429);
       
       if (isRateLimit && retries < maxRetries) {
         retries++;
@@ -135,15 +134,21 @@ async function startServer() {
         const now = new Date();
         const timeString = now.toLocaleString('zh-CN');
 
+        const isTheaterMode = !!(additionalSystemInstructions || "").includes('剧场模式') || !!(message || "").includes('剧场模式');
+        const showActions = isTheaterMode || userProfile?.enableActionDescriptions === true;
+
         const fullSystemInstruction = [
           worldbook?.globalPrompt ? `【全局规则】\n${worldbook.globalPrompt}` : "",
+          ...(worldbook?.globalPrompts || []).filter(Boolean).map((p: string) => `【额外全局规则】\n${p}`),
           worldbook?.jailbreakPrompt ? `【破限协议】\n${worldbook.jailbreakPrompt}` : "",
+          ...(worldbook?.jailbreakPrompts || []).filter(Boolean).map((p: string) => `【额外破限协议】\n${p}`),
           `【当前时间】${timeString}。`,
           persona?.instructions ? `【角色人设】\n${persona.instructions}` : "",
           persona?.prompt ? `【专属提示词】\n${persona.prompt}` : "",
           `【用户人设】\n${userProfile?.persona || '一个普通人'}`,
-          `【回复规范】绝对锁定身份。拒绝客服腔。严禁替用户说话。所有的动作、心理、环境描写必须包裹在括号 ( ) 中。请像真实的微信好友一样自然聊天。`,
-          additionalSystemInstructions || ""
+          `【回复规范】绝对锁定身份。拒绝客服腔。严禁替用户说话。禁止在回复开头添加 [角色名] 或任何类似的前缀。${showActions ? '所有的动作、心理、环境描写必须包裹在括号 ( ) 中。' : '请像真实的微信好友一样自然聊天，严禁使用 (动作) 或 *动作* 这种角色扮演式的描写。直接输出对话内容即可，不要描述动作。'}`,
+          additionalSystemInstructions || "",
+          (!showActions) ? "【绝对禁止】严禁任何动作描写，严禁使用括号，只输出对话文字。" : ""
         ].filter(Boolean).join('\n\n');
 
         let cleanedText = "";
@@ -229,8 +234,23 @@ async function startServer() {
             }
           }));
 
-          const responseText = response.text || "";
-          cleanedText = responseText.replace(/\[ID:\s*[^\]]+\]/gi, '').replace(/\|\|\|/g, '').trim();
+          cleanedText = response.text || "";
+        }
+
+        cleanedText = cleanedText.replace(/\[ID:\s*[^\]]+\]/gi, '').replace(/\|\|\|/g, '').trim();
+        
+        if (!isTheaterMode && ((cleanedText.startsWith('“') && cleanedText.endsWith('”')) || (cleanedText.startsWith('"') && cleanedText.endsWith('"')))) {
+          cleanedText = cleanedText.substring(1, cleanedText.length - 1).trim();
+        }
+
+        if (!showActions) {
+          cleanedText = cleanedText.replace(/\([^)]*\)/g, '').replace(/（[^）]*）/g, '').trim();
+        }
+        if (persona?.name) {
+          const prefix = `[${persona.name}]:`;
+          if (cleanedText.startsWith(prefix)) {
+            cleanedText = cleanedText.substring(prefix.length).trim();
+          }
         }
 
         // Save AI response to DB
@@ -298,15 +318,21 @@ async function startServer() {
       const now = new Date();
       const timeString = now.toLocaleString('zh-CN');
 
+      const isTheaterMode = !!(additionalSystemInstructions || "").includes('剧场模式') || !!(message || "").includes('剧场模式');
+      const showActions = isTheaterMode || userProfile?.enableActionDescriptions === true;
+
       const fullSystemInstruction = [
         worldbook?.globalPrompt ? `【全局规则】\n${worldbook.globalPrompt}` : "",
+        ...(worldbook?.globalPrompts || []).filter(Boolean).map((p: string) => `【额外全局规则】\n${p}`),
         worldbook?.jailbreakPrompt ? `【破限协议】\n${worldbook.jailbreakPrompt}` : "",
+        ...(worldbook?.jailbreakPrompts || []).filter(Boolean).map((p: string) => `【额外破限协议】\n${p}`),
         `【当前时间】${timeString}。`,
         persona?.instructions ? `【角色人设】\n${persona.instructions}` : "",
         persona?.prompt ? `【专属提示词】\n${persona.prompt}` : "",
         `【用户人设】\n${userProfile?.persona || '一个普通人'}`,
-        `【回复规范】绝对锁定身份。拒绝客服腔。严禁替用户说话。所有的动作、心理、环境描写必须包裹在括号 ( ) 中。请像真实的微信好友一样自然聊天。`,
-        additionalSystemInstructions || ""
+        `【回复规范】绝对锁定身份。拒绝客服腔。严禁替用户说话。禁止在回复开头添加 [角色名] 或任何类似的前缀。${showActions ? '所有的动作、心理、环境描写必须包裹在括号 ( ) 中。' : '请像真实的微信好友一样自然聊天，严禁使用 (动作) 或 *动作* 这种角色扮演式的描写。直接输出对话内容即可，不要描述动作。'}`,
+        additionalSystemInstructions || "",
+        (!showActions) ? "【绝对禁止】严禁任何动作描写，严禁使用括号，只输出对话文字。" : ""
       ].filter(Boolean).join('\n\n');
 
       let responseText = "";

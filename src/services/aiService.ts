@@ -55,21 +55,20 @@ export async function withRetry<T>(fn: () => Promise<T>, maxRetries = 12, initia
     try {
       return await fn();
     } catch (error: any) {
-      const errorMsg = error.message?.toLowerCase() || "";
+      const errorMsg = (error?.message || error?.toString() || "").toLowerCase();
       const isRateLimit = errorMsg.includes('rate limit') || 
                           errorMsg.includes('quota') ||
                           errorMsg.includes('429') ||
                           errorMsg.includes('exhausted') ||
-                          error.status === 429 ||
-                          (error.response?.status === 429) ||
-                          (typeof error.message === 'string' && error.message.includes('429'));
+                          error?.status === 429 ||
+                          (error?.response?.status === 429);
       
       const isNetworkError = errorMsg.includes('failed to fetch') || 
                              errorMsg.includes('network error') ||
                              errorMsg.includes('aborted') || 
                              errorMsg.includes('timeout') ||
-                             [500, 502, 503, 504].includes(error.status) ||
-                             [500, 502, 503, 504].includes(error.response?.status);
+                             [500, 502, 503, 504].includes(error?.status) ||
+                             [500, 502, 503, 504].includes(error?.response?.status);
 
       if ((isRateLimit || isNetworkError) && retries < maxRetries) {
         retries++;

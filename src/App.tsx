@@ -1942,7 +1942,7 @@ ${recentMsgs}`;
 
         if (responseText && responseText.includes('[NO_REPLY]')) return;
         
-        const processed = processAiResponseParts(responseText, userProfile, undefined, targetPersona.isSegmentResponse || worldbook.forceSegmentResponse);
+        const processed = processAiResponseParts(responseText, userProfile, undefined, targetPersona.isSegmentResponse || worldbook.forceSegmentResponse, !!theaterId);
         
         if (processed.orderItems && processed.orderItems.length > 0) {
            handleAiOrder(processed.orderItems, personaId);
