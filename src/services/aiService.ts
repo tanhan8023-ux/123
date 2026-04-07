@@ -49,7 +49,7 @@ export async function generateLyrics(
   return responseText || "[00:00.00] 抱歉，未找到该歌曲的歌词。";
 }
 
-export async function withRetry<T>(fn: () => Promise<T>, maxRetries = 6, initialDelay = 2000): Promise<T> {
+export async function withRetry<T>(fn: () => Promise<T>, maxRetries = 4, initialDelay = 1000): Promise<T> {
   let retries = 0;
   while (true) {
     try {
@@ -133,7 +133,7 @@ async function callAi(params: {
     }
     const response = await withRetry(async () => {
       const controller = new AbortController();
-      const id = setTimeout(() => controller.abort(), 60000); // 60s timeout
+      const id = setTimeout(() => controller.abort(), 30000); // 30s timeout
       
       try {
         const res = await fetch(endpoint, {

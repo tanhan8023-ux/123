@@ -661,7 +661,7 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
                   for (let i = 0; i < texts.length; i++) {
                     // Wait if user is typing
                     let typeWaitTime = 0;
-                    while ((window as any).isUserTyping && !document.hidden && typeWaitTime < 10000) {
+                    while ((window as any).isUserTyping && !document.hidden && typeWaitTime < 3000) {
                       await new Promise(resolve => setTimeout(resolve, 500));
                       typeWaitTime += 500;
                       if (abortController.signal.aborted) {

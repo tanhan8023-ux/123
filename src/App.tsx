@@ -1683,9 +1683,9 @@ export default function App() {
         }
         processedUserMsgIds.current.add(userMsgId);
         
-        // Wait until the user finishes typing, max 10 seconds
+        // Wait until the user finishes typing, max 3 seconds
         let waitTime = 0;
-        while ((window as any).isUserTyping && !document.hidden && waitTime < 10000) {
+        while ((window as any).isUserTyping && !document.hidden && waitTime < 3000) {
           await new Promise(resolve => setTimeout(resolve, 500));
           waitTime += 500;
           // If a new request was triggered while waiting, abort this one
@@ -1695,7 +1695,7 @@ export default function App() {
           }
         }
         // Safety reset if stuck
-        if (waitTime >= 10000) {
+        if (waitTime >= 3000) {
           console.warn("User typing wait timeout reached, proceeding with AI response.");
           (window as any).isUserTyping = false;
         }
@@ -1986,7 +1986,7 @@ ${recentMsgs}`;
         for (let i = 0; i < processed.parts.length; i++) {
           // Wait if user is typing
           let typeWaitTime = 0;
-          while ((window as any).isUserTyping && !document.hidden && typeWaitTime < 10000) {
+          while ((window as any).isUserTyping && !document.hidden && typeWaitTime < 3000) {
             await new Promise(resolve => setTimeout(resolve, 500));
             typeWaitTime += 500;
             if (currentAbortSignal.aborted) {
