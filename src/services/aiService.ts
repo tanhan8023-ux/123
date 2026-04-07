@@ -132,24 +132,29 @@ async function callAi(params: {
     if (params.systemInstruction) {
       messages.unshift({ role: 'system', content: params.systemInstruction });
     }
-    const response = await withRetry(() => fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${params.apiKey}`
-      },
-      body: JSON.stringify({
-        model: params.model,
-        messages,
-        temperature: params.temperature,
-        stream: false
-      }),
-      signal: params.signal
-    }));
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error?.message || `API Error: ${response.status}`);
-    }
+    const response = await withRetry(async () => {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${params.apiKey}`
+        },
+        body: JSON.stringify({
+          model: params.model,
+          messages,
+          temperature: params.temperature,
+          stream: false
+        }),
+        signal: params.signal
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        const err = new Error(errorData.error?.message || `API Error: ${res.status}`);
+        (err as any).status = res.status;
+        throw err;
+      }
+      return res;
+    });
     const data = await response.json();
     return data.choices?.[0]?.message?.content || "";
   } else {
@@ -339,7 +344,13 @@ export async function generateMoment(persona: Persona, apiSettings: ApiSettings,
 export async function generateXHSPost(apiSettings: ApiSettings, worldbook: WorldbookSettings, userProfile: UserProfile, aiRef: any) {
   const prompt = `生成小红书。`;
   const { responseText } = await fetchAiResponse(prompt, [], { id: 'xhs' } as any, apiSettings, worldbook, userProfile, aiRef, false, "", undefined, undefined, undefined, undefined, undefined, true);
-  const data = JSON.parse(responseText.match(/\{[\s\S]*\}/)?.[0] || "{}");
+  let data: any = {};
+  try {
+    data = JSON.parse(responseText.match(/\{[\s\S]*\}/)?.[0] || "{}");
+  } catch (e) {
+    console.error("Failed to parse XHS post data:", e);
+    data = { title: "无题", content: responseText, imagePrompt: "aesthetic background", authorName: "AI", authorAvatarPrompt: "avatar" };
+  }
   const [mainImg, avatarImg] = await Promise.all([
     generateImage(data.imagePrompt, apiSettings.apiKey || "", apiSettings.apiUrl), 
     generateImage(data.authorAvatarPrompt, apiSettings.apiKey || "", apiSettings.apiUrl)

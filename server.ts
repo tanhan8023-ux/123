@@ -26,7 +26,7 @@ function generateId() {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
-async function withRetry<T>(fn: () => Promise<T>, maxRetries = 8, initialDelay = 5000): Promise<T> {
+async function withRetry<T>(fn: () => Promise<T>, maxRetries = 12, initialDelay = 3000): Promise<T> {
   let retries = 0;
   while (true) {
     try {
@@ -40,13 +40,26 @@ async function withRetry<T>(fn: () => Promise<T>, maxRetries = 8, initialDelay =
                           error?.status === 429 ||
                           (error?.response?.status === 429);
       
-      if (isRateLimit && retries < maxRetries) {
+      const isNetworkError = errorMsg.includes('failed to fetch') || 
+                             errorMsg.includes('network error') ||
+                             errorMsg.includes('aborted') || 
+                             errorMsg.includes('timeout') ||
+                             [500, 502, 503, 504].includes(error?.status) ||
+                             [500, 502, 503, 504].includes(error?.response?.status);
+
+      if ((isRateLimit || isNetworkError) && retries < maxRetries) {
         retries++;
         const delay = initialDelay * Math.pow(2, retries - 1) + Math.random() * 1000;
-        console.warn(`Rate limit hit, retrying in ${Math.round(delay)}ms... (Attempt ${retries}/${maxRetries})`);
+        const reason = isRateLimit ? "Rate limit" : "Network/Server error";
+        console.warn(`[Server AI Retry] ${reason} hit, retrying in ${Math.round(delay)}ms... (Attempt ${retries}/${maxRetries})`);
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
+      
+      if (isRateLimit) {
+        throw new Error("AI 响应过快，请稍后再试 (Rate limit exceeded)");
+      }
+      
       throw error;
     }
   }
@@ -177,7 +190,8 @@ async function startServer() {
           }
           messages.unshift({ role: 'system', content: fullSystemInstruction });
 
-          const response = await withRetry(() => fetch(endpoint, {
+        const response = await withRetry(async () => {
+          const res = await fetch(endpoint, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -190,14 +204,17 @@ async function startServer() {
               max_tokens: 2048,
               stream: false
             })
-          }));
-
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({})) as any;
-            throw new Error(errorData.error?.message || `API Error: ${response.status}`);
+          });
+          if (!res.ok) {
+            const errorData = await res.json().catch(() => ({})) as any;
+            const err = new Error(errorData.error?.message || `API Error: ${res.status}`);
+            (err as any).status = res.status;
+            throw err;
           }
-          const data = await response.json() as any;
-          cleanedText = data.choices?.[0]?.message?.content || "";
+          return res;
+        });
+        const data = await response.json() as any;
+        cleanedText = data.choices?.[0]?.message?.content || "";
         } else {
           // --- Native Gemini Call ---
           const ai = new GoogleGenAI({ apiKey });
@@ -361,21 +378,29 @@ async function startServer() {
         }
         messages.unshift({ role: 'system', content: fullSystemInstruction });
 
-        const response = await withRetry(() => fetch(endpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`
-          },
-          body: JSON.stringify({
-            model: modelName,
-            messages,
-            temperature: apiSettings?.temperature || 0.7,
-            max_tokens: 2048
-          })
-        }));
+        const response = await withRetry(async () => {
+          const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+              model: modelName,
+              messages,
+              temperature: apiSettings?.temperature || 0.7,
+              max_tokens: 2048
+            })
+          });
+          if (!res.ok) {
+            const errorData = await res.json().catch(() => ({})) as any;
+            const err = new Error(errorData.error?.message || `API Error: ${res.status}`);
+            (err as any).status = res.status;
+            throw err;
+          }
+          return res;
+        });
 
-        if (!response.ok) throw new Error(`API Error: ${response.status}`);
         const data = await response.json() as any;
         responseText = data.choices?.[0]?.message?.content || "";
       } else {
