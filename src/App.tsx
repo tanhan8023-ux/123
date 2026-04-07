@@ -1019,11 +1019,7 @@ export default function App() {
         const next = { ...prev };
         let changed = false;
         Object.keys(next).forEach(id => {
-          // If a persona is stuck typing for more than 45 seconds, clear it
-          // We don't have a 'typingStartedAt' state, but we can assume if it's true, 
-          // we should eventually clear it if no new messages are coming.
-          // Actually, let's just clear all typing states if pendingRequests is 0 as a safety.
-          if (next[id] && pendingRequests.current[id] === 0) {
+          if (next[id] && (pendingRequests.current[id] || 0) === 0) {
             next[id] = false;
             changed = true;
           }
@@ -1661,6 +1657,7 @@ export default function App() {
     // Clear existing timeout for this persona
     if (aiResponseTimeouts.current[personaId]) {
       clearTimeout(aiResponseTimeouts.current[personaId]);
+      aiResponseTimeouts.current[personaId] = null;
       pendingRequests.current[personaId] = Math.max(0, (pendingRequests.current[personaId] || 0) - 1);
     }
     
@@ -1676,7 +1673,7 @@ export default function App() {
 
     const executeAiResponse = async () => {
       delete pendingAiCallbacks.current[personaId];
-      const currentTimeoutId = aiResponseTimeouts.current[personaId];
+      aiResponseTimeouts.current[personaId] = null;
       
       try {
         // Prevent duplicate processing of the same message ID
@@ -1692,7 +1689,7 @@ export default function App() {
           await new Promise(resolve => setTimeout(resolve, 500));
           waitTime += 500;
           // If a new request was triggered while waiting, abort this one
-          if (aiResponseTimeouts.current[personaId] !== currentTimeoutId) {
+          if (currentAbortSignal.aborted) {
             console.log('AI response aborted: new message received while waiting for user to finish typing');
             return;
           }
@@ -1959,7 +1956,7 @@ ${recentMsgs}`;
         }
 
         // If a new request was triggered while fetching, abort this one
-        if (aiResponseTimeouts.current[personaId] !== currentTimeoutId) {
+        if (currentAbortSignal.aborted) {
           return;
         }
 
@@ -1992,14 +1989,14 @@ ${recentMsgs}`;
           while ((window as any).isUserTyping && !document.hidden && typeWaitTime < 10000) {
             await new Promise(resolve => setTimeout(resolve, 500));
             typeWaitTime += 500;
-            if (aiResponseTimeouts.current[personaId] !== currentTimeoutId) {
+            if (currentAbortSignal.aborted) {
               console.log('AI response typing aborted due to new message while waiting for user to finish typing');
               return;
             }
           }
 
           // If a new request was triggered, stop typing the rest of the response
-          if (aiResponseTimeouts.current[personaId] !== currentTimeoutId) {
+          if (currentAbortSignal.aborted) {
             console.log('AI response typing aborted due to new message');
             return;
           }
@@ -2010,7 +2007,7 @@ ${recentMsgs}`;
           await new Promise(resolve => setTimeout(resolve, typingDelay));
           
           // Check again after the delay
-          if (aiResponseTimeouts.current[personaId] !== currentTimeoutId) {
+          if (currentAbortSignal.aborted) {
             console.log('AI response typing aborted due to new message');
             return;
           }

@@ -733,6 +733,17 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
     return () => clearTimeout(timer);
   }, [messages, currentGroupId, isActive, groups, personas, apiSettings, worldbook, userProfile]);
 
+  useEffect(() => {
+    // Reset typing state when chat changes
+    setIsTyping(false);
+    pendingRequests.current = 0;
+    
+    return () => {
+      setIsTyping(false);
+      pendingRequests.current = 0;
+    };
+  }, [currentChatId, currentGroupId]);
+
   const handleUnreadReaction = async (persona: Persona, lastMsgId: string) => {
     // Double check state hasn't changed
     const currentLastMsg = messages[messages.length - 1];
@@ -1469,6 +1480,7 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
       lastSentMessageRef.current = { text, time: nowTime };
 
       setInputText('');
+      (window as any).isUserTyping = false;
       if (inputRef.current) inputRef.current.value = '';
     }
 
