@@ -2002,7 +2002,7 @@ ${recentMsgs}`;
           }
 
           const part = processed.parts[i];
-          const typingDelay = Math.min((part.text || '...').length * 50, 1500) + Math.random() * 500;
+          const typingDelay = Math.min((part.text || '...').length * 20, 800) + Math.random() * 200;
           setTypingPersonas(prev => ({ ...prev, [personaId]: true }));
           await new Promise(resolve => setTimeout(resolve, typingDelay));
           
@@ -2100,7 +2100,7 @@ ${recentMsgs}`;
     };
 
     pendingAiCallbacks.current[personaId] = executeAiResponse;
-    const delay = document.hidden ? 0 : 2000;
+    const delay = document.hidden ? 0 : 500;
     aiResponseTimeouts.current[personaId] = setTimeout(() => {
       if (pendingAiCallbacks.current[personaId]) {
         pendingAiCallbacks.current[personaId]();

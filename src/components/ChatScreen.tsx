@@ -834,7 +834,7 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
       for (let i = 0; i < processed.parts.length; i++) {
         const part = processed.parts[i];
         const partText = part.text || '';
-        const typingDelay = Math.min(partText.length * 50, 1500) + Math.random() * 500;
+        const typingDelay = Math.min(partText.length * 20, 800) + Math.random() * 200;
         setIsTyping(true);
         await new Promise(resolve => setTimeout(resolve, typingDelay));
         
@@ -1280,7 +1280,7 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
 
             for (let i = 0; i < finalParts.length; i++) {
               const part = finalParts[i];
-              const typingDelay = Math.min((part.text || '...').length * 50, 1500) + Math.random() * 500;
+              const typingDelay = Math.min((part.text || '...').length * 20, 800) + Math.random() * 200;
               setIsTyping(true);
               await new Promise(resolve => setTimeout(resolve, typingDelay));
               
@@ -1753,7 +1753,7 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
 
         for (let i = 0; i < finalParts.length; i++) {
           const part = finalParts[i];
-          const typingDelay = Math.min((part.text || '...').length * 50, 1500) + Math.random() * 500;
+          const typingDelay = Math.min((part.text || '...').length * 20, 800) + Math.random() * 200;
           setIsTyping(true);
           await new Promise(resolve => setTimeout(resolve, typingDelay));
           
@@ -1836,7 +1836,7 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
                   for (let i = 0; i < processedRecall.parts.length; i++) {
                     const part = processedRecall.parts[i];
                     const partText = part.text || '';
-                    const typingDelay = Math.min(partText.length * 50, 1500) + Math.random() * 500;
+                    const typingDelay = Math.min(partText.length * 20, 800) + Math.random() * 200;
                     setIsTyping(true);
                     await new Promise(resolve => setTimeout(resolve, typingDelay));
                     
@@ -2098,7 +2098,7 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
         for (let i = 0; i < processed.parts.length; i++) {
           const part = processed.parts[i];
           const partText = part.text || '';
-          const typingDelay = Math.min(partText.length * 50, 1500) + Math.random() * 500;
+          const typingDelay = Math.min(partText.length * 20, 800) + Math.random() * 200;
           setIsTyping(true);
           await new Promise(resolve => setTimeout(resolve, typingDelay));
           
@@ -2289,7 +2289,7 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
 
       for (let i = 0; i < finalParts.length; i++) {
         const part = finalParts[i];
-        const typingDelay = Math.min((part.text || '...').length * 50, 1500) + Math.random() * 500;
+        const typingDelay = Math.min((part.text || '...').length * 20, 800) + Math.random() * 200;
         setIsTyping(true);
         await new Promise(resolve => setTimeout(resolve, typingDelay));
         
