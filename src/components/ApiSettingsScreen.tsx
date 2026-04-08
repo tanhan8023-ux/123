@@ -78,6 +78,9 @@ export function ApiSettingsScreen({ settings, personas: initialPersonas, userPro
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollTop = 0;
     }
+    if (window.location.protocol === 'file:') {
+      setLogs(prev => [...prev, '> Warning: 检测到正在从本地文件运行。浏览器可能会拦截 API 请求 (CORS 限制)。建议部署到 Web 服务器或使用本地服务器运行。']);
+    }
   }, []);
 
   useEffect(() => {
@@ -141,6 +144,10 @@ export function ApiSettingsScreen({ settings, personas: initialPersonas, userPro
     if (!actualApiKey) {
       setLogs(prev => [...prev, '> Error: 缺少 API KEY']);
       return;
+    }
+
+    if (window.location.protocol === 'file:') {
+      setLogs(prev => [...prev, '> Warning: 检测到正在从本地文件运行。浏览器可能会拦截 API 请求 (CORS 限制)。建议部署到 Web 服务器或使用本地服务器运行。']);
     }
 
     setLogs(prev => [...prev, `> Fetching models...`]);
@@ -208,7 +215,11 @@ export function ApiSettingsScreen({ settings, personas: initialPersonas, userPro
         throw new Error('未找到模型或返回格式不正确');
       }
     } catch (error: any) {
-      setLogs(prev => [...prev, `> Error: ${error.message}`]);
+      let msg = error.message;
+      if (msg === 'Load failed' || msg === 'Failed to fetch') {
+        msg = '网络连接失败 (Load failed)。请检查：\n1. API Key 是否正确\n2. 网络是否通畅 (如需 VPN 请开启)\n3. 是否存在跨域(CORS)限制 (建议部署到服务器而非本地打开文件)\n4. 如果使用代理，请确保 API URL 正确。';
+      }
+      setLogs(prev => [...prev, `> Error: ${msg}`]);
     }
   };
 

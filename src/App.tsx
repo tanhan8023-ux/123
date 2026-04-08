@@ -2083,7 +2083,10 @@ ${recentMsgs}`;
           return;
         }
         console.error("AI Response Error:", error);
-        const errorMessage = error instanceof Error ? error.message : String(error);
+        let errorMessage = error instanceof Error ? error.message : String(error);
+        if (errorMessage === 'Load failed' || errorMessage === 'Failed to fetch') {
+          errorMessage = '网络连接失败 (Load failed)。请检查：1. API 设置是否正确 2. 网络是否通畅 (如需 VPN 请开启) 3. 是否存在 CORS 限制 (建议不要直接打开 HTML 文件运行)';
+        }
         const errorMsg: Message = {
           id: generateId(),
           personaId,
