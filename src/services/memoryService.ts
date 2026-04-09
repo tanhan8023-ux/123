@@ -1,7 +1,5 @@
 import localforage from 'localforage';
 
-const MEMORY_STORAGE_KEY = 'user_memories';
-
 export interface UserMemory {
   preferences: string[];
   pastContext: string[];
@@ -9,21 +7,27 @@ export interface UserMemory {
 }
 
 export const memoryService = {
-  async getMemories(): Promise<UserMemory> {
-    return (await localforage.getItem<UserMemory>(MEMORY_STORAGE_KEY)) || {
+  getStorageKey(personaId?: string): string {
+    return personaId ? `user_memories_${personaId}` : 'user_memories';
+  },
+
+  async getMemories(personaId?: string): Promise<UserMemory> {
+    const key = this.getStorageKey(personaId);
+    return (await localforage.getItem<UserMemory>(key)) || {
       preferences: [],
       pastContext: [],
       lastUpdated: Date.now()
     };
   },
 
-  async updateMemories(memories: UserMemory): Promise<void> {
+  async updateMemories(memories: UserMemory, personaId?: string): Promise<void> {
+    const key = this.getStorageKey(personaId);
     memories.lastUpdated = Date.now();
-    await localforage.setItem(MEMORY_STORAGE_KEY, memories);
+    await localforage.setItem(key, memories);
   },
 
-  async saveMemory(preference: string, context: string): Promise<void> {
-    const memories = await this.getMemories();
+  async saveMemory(preference: string, context: string, personaId?: string): Promise<void> {
+    const memories = await this.getMemories(personaId);
     if (preference && memories.preferences && !memories.preferences.includes(preference)) {
       memories.preferences.push(preference);
     }
@@ -35,11 +39,6 @@ export const memoryService = {
       }
     }
     memories.lastUpdated = Date.now();
-    await localforage.setItem(MEMORY_STORAGE_KEY, memories);
-  },
-
-  async setMemories(newMemories: UserMemory): Promise<void> {
-    newMemories.lastUpdated = Date.now();
-    await localforage.setItem(MEMORY_STORAGE_KEY, newMemories);
+    await this.updateMemories(memories, personaId);
   }
 };

@@ -42,6 +42,8 @@ export function ApiSettingsScreen({ settings, personas: initialPersonas, userPro
   const [userProfile, setUserProfile] = useState<UserProfile>(initialUserProfile);
   const [memories, setMemories] = useState<UserMemory | null>(null);
   const [initialMemories, setInitialMemories] = useState<UserMemory | null>(null);
+  const [personaMemories, setPersonaMemories] = useState<Record<string, UserMemory>>({});
+  const [initialPersonaMemories, setInitialPersonaMemories] = useState<Record<string, UserMemory>>({});
   const logsEndRef = useRef<HTMLDivElement>(null);
   const userAvatarInputRef = useRef<HTMLInputElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -52,7 +54,18 @@ export function ApiSettingsScreen({ settings, personas: initialPersonas, userPro
       setMemories(m);
       setInitialMemories(m);
     });
-  }, []);
+    
+    // Load memories for all personas
+    const loadPersonaMemories = async () => {
+      const pMemories: Record<string, UserMemory> = {};
+      for (const p of initialPersonas) {
+        pMemories[p.id] = await memoryService.getMemories(p.id);
+      }
+      setPersonaMemories(pMemories);
+      setInitialPersonaMemories(JSON.parse(JSON.stringify(pMemories)));
+    };
+    loadPersonaMemories();
+  }, [initialPersonas]);
 
   const hasChanges = apiUrl !== settings.apiUrl || 
                      apiKey !== settings.apiKey || 
@@ -75,7 +88,8 @@ export function ApiSettingsScreen({ settings, personas: initialPersonas, userPro
                      proactiveDelay !== settings.proactiveDelay ||
                      JSON.stringify(personas) !== JSON.stringify(initialPersonas) ||
                      JSON.stringify(userProfile) !== JSON.stringify(initialUserProfile) ||
-                     JSON.stringify(memories) !== JSON.stringify(initialMemories);
+                     JSON.stringify(memories) !== JSON.stringify(initialMemories) ||
+                     JSON.stringify(personaMemories) !== JSON.stringify(initialPersonaMemories);
 
   const handleBack = () => {
     if (hasChanges) {
@@ -112,6 +126,17 @@ export function ApiSettingsScreen({ settings, personas: initialPersonas, userPro
       setMemories(cleanedMemories);
       setInitialMemories(cleanedMemories);
     }
+    
+    // Save persona memories
+    Object.entries(personaMemories).forEach(([personaId, pMemory]) => {
+      const cleanedPMemory = {
+        ...pMemory,
+        preferences: pMemory.preferences.filter(line => line.trim() !== '')
+      };
+      memoryService.updateMemories(cleanedPMemory, personaId);
+    });
+    setInitialPersonaMemories(JSON.parse(JSON.stringify(personaMemories)));
+
     onSave({ 
       apiUrl, apiKey, model, 
       momentsApiUrl, momentsApiKey, momentsModel, autoPostMoments, autoUpdateStatus, isAutoXhsEnabled, isProactiveMessagingEnabled,
@@ -451,7 +476,7 @@ export function ApiSettingsScreen({ settings, personas: initialPersonas, userPro
 
           <div className="space-y-2 pt-2 border-t border-neutral-100">
             <label className="text-[11px] font-medium text-neutral-500 uppercase tracking-wide flex justify-between items-center">
-              <span>长期记忆 (Long-term Memory)</span>
+              <span>全局记忆 (Global Memory)</span>
               <span className="text-[10px] text-neutral-400 normal-case">每行一条</span>
             </label>
             <textarea 
@@ -887,6 +912,40 @@ export function ApiSettingsScreen({ settings, personas: initialPersonas, userPro
                     value={persona.instructions}
                     onChange={(e) => handleUpdatePersona(persona.id, { instructions: e.target.value })}
                     placeholder="例如：你是一个傲娇的青梅竹马..."
+                    className="w-full h-40 bg-white border border-neutral-200 rounded-lg px-3 py-2 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-[14px] text-neutral-900 leading-relaxed"
+                  />
+                </div>
+
+                <div className="space-y-2 pt-2 border-t border-neutral-100">
+                  <label className="text-[11px] font-medium text-neutral-500 uppercase tracking-wide flex justify-between items-center">
+                    <span>TA 的专属记忆 (Persona Memory)</span>
+                    <span className="text-[10px] text-neutral-400 normal-case">每行一条</span>
+                  </label>
+                  <textarea 
+                    placeholder="例如：用户喜欢喝奶茶&#10;昨天一起看了电影..."
+                    value={personaMemories[persona.id]?.preferences.join('\n') || ''}
+                    onChange={(e) => {
+                      const currentMemory = personaMemories[persona.id] || { preferences: [], pastContext: [], lastUpdated: Date.now() };
+                      setPersonaMemories({
+                        ...personaMemories,
+                        [persona.id]: {
+                          ...currentMemory,
+                          preferences: e.target.value.split('\n')
+                        }
+                      });
+                    }}
+                    onBlur={() => {
+                      const currentMemory = personaMemories[persona.id];
+                      if (currentMemory) {
+                        setPersonaMemories({
+                          ...personaMemories,
+                          [persona.id]: {
+                            ...currentMemory,
+                            preferences: currentMemory.preferences.filter(line => line.trim() !== '')
+                          }
+                        });
+                      }
+                    }}
                     className="w-full h-40 bg-white border border-neutral-200 rounded-lg px-3 py-2 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-[14px] text-neutral-900 leading-relaxed"
                   />
                 </div>

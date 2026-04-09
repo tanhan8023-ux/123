@@ -459,7 +459,8 @@ export async function fetchAiResponse(
 
   const now = new Date();
   const timeString = now.toLocaleString('zh-CN');
-  const memories = await memoryService.getMemories();
+  const globalMemories = await memoryService.getMemories();
+  const personaMemories = await memoryService.getMemories(persona.id);
 
   // 构建完整的系统指令
   const isTheaterMode = !!additionalSystemInstructions.includes('剧场模式') || !!promptText.includes('剧场模式');
@@ -475,7 +476,8 @@ export async function fetchAiResponse(
     persona.instructions ? `【角色人设】\n${persona.instructions}` : "",
     persona.prompt ? `【专属提示词】\n${persona.prompt}` : "",
     `【用户人设】\n${userProfile.persona || '一个普通人'}`,
-    memories.preferences.length > 0 ? `【长期记忆】\n${memories.preferences.join('\n')}` : "",
+    globalMemories.preferences.length > 0 ? `【全局记忆】\n${globalMemories.preferences.join('\n')}` : "",
+    personaMemories.preferences.length > 0 ? `【专属记忆】\n${personaMemories.preferences.join('\n')}` : "",
     `【回复规范】绝对锁定身份。拒绝客服腔。严禁替用户说话。禁止在回复开头添加 [角色名] 或任何类似的前缀。${showActions ? '所有的动作、心理、环境描写必须包裹在括号 ( ) 中。' : '请像真实的微信好友一样自然聊天，严禁使用 (动作) 或 *动作* 这种角色扮演式的描写。直接输出对话内容即可，不要描述动作。'}`,
     additionalSystemInstructions,
     (disableActions || !showActions) ? "【绝对禁止】严禁任何动作描写，严禁使用括号，只输出对话文字。" : ""

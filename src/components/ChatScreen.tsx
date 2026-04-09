@@ -47,6 +47,7 @@ import { ChatInput } from './ChatInput';
 import { ChatListView } from './ChatListView';
 import { WalletScreen } from './WalletScreen';
 import { generateId } from '../utils/id';
+import { memoryService } from '../services/memoryService';
 import { processAiResponseParts, cleanContextMessage } from '../utils/chatUtils';
 
 interface Props {
@@ -3846,6 +3847,24 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
                   <Smile size={28} />
                 </div>
                 <span className="text-[12px] text-neutral-500">求表情包</span>
+              </button>
+
+              <button 
+                onClick={() => {
+                  setShowPlusMenu(false);
+                  const memory = window.prompt("请输入要添加的专属记忆：");
+                  if (memory && memory.trim() && currentPersona) {
+                    memoryService.saveMemory(memory.trim(), "", currentPersona.id).then(() => {
+                      alert("专属记忆添加成功！");
+                    });
+                  }
+                }} 
+                className="flex flex-col items-center gap-2"
+              >
+                <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-neutral-700 shadow-sm">
+                  <Brain size={28} />
+                </div>
+                <span className="text-[12px] text-neutral-500">专属记忆</span>
               </button>
 
               <button 
