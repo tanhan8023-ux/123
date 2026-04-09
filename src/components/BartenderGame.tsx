@@ -47,45 +47,64 @@ export function BartenderGame({ onBack, apiSettings, personas, messages, setMess
     }
   };
 
-  const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(() => safeParse('bartender_selectedPersonaId', null));
-  const [selectedIngredients, setSelectedIngredients] = useState<Ingredient[]>(() => safeParse('bartender_selectedIngredients', []));
-  const [gameState, setGameState] = useState<GameState>(() => safeParse('bartender_gameState', 'dice-roll'));
-  const [bartenderComment, setBartenderComment] = useState<string>(() => safeParse('bartender_bartenderComment', ''));
-  const [question, setQuestion] = useState<string>(() => safeParse('bartender_question', ''));
-  const [userAnswer, setUserAnswer] = useState<string>(() => safeParse('bartender_userAnswer', ''));
+  const initialPersonaId = safeParse('bartender_selectedPersonaId', null);
+  const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(initialPersonaId);
+  const [selectedIngredients, setSelectedIngredients] = useState<Ingredient[]>(() => safeParse(`bartender_selectedIngredients_${initialPersonaId}`, []));
+  const [gameState, setGameState] = useState<GameState>(() => safeParse(`bartender_gameState_${initialPersonaId}`, 'dice-roll'));
+  const [bartenderComment, setBartenderComment] = useState<string>(() => safeParse(`bartender_bartenderComment_${initialPersonaId}`, ''));
+  const [question, setQuestion] = useState<string>(() => safeParse(`bartender_question_${initialPersonaId}`, ''));
+  const [userAnswer, setUserAnswer] = useState<string>(() => safeParse(`bartender_userAnswer_${initialPersonaId}`, ''));
   const [isLoading, setIsLoading] = useState(false);
-  const [history, setHistory] = useState<Array<{ role: 'bartender' | 'user' | 'system', text: string }>>(() => safeParse('bartender_history', []));
+  const [history, setHistory] = useState<Array<{ role: 'bartender' | 'user' | 'system', text: string }>>(() => safeParse(`bartender_history_${initialPersonaId}`, []));
   
   // Dice Game State
-  const [userDice, setUserDice] = useState<number>(() => safeParse('bartender_userDice', 0));
-  const [aiDice, setAiDice] = useState<number>(() => safeParse('bartender_aiDice', 0));
-  const [winner, setWinner] = useState<'user' | 'ai' | null>(() => safeParse('bartender_winner', null));
+  const [userDice, setUserDice] = useState<number>(() => safeParse(`bartender_userDice_${initialPersonaId}`, 0));
+  const [aiDice, setAiDice] = useState<number>(() => safeParse(`bartender_aiDice_${initialPersonaId}`, 0));
+  const [winner, setWinner] = useState<'user' | 'ai' | null>(() => safeParse(`bartender_winner_${initialPersonaId}`, null));
   const [isRolling, setIsRolling] = useState(false);
   
   // Drunk State
-  const [intoxication, setIntoxication] = useState<number>(() => safeParse('bartender_intoxication', 0));
-  const [userIntoxication, setUserIntoxication] = useState<number>(() => safeParse('bartender_userIntoxication', 0));
-  const [gameMemory, setGameMemory] = useState<string[]>(() => safeParse('bartender_gameMemory', []));
+  const [intoxication, setIntoxication] = useState<number>(() => safeParse(`bartender_intoxication_${initialPersonaId}`, 0));
+  const [userIntoxication, setUserIntoxication] = useState<number>(() => safeParse(`bartender_userIntoxication_${initialPersonaId}`, 0));
+  const [gameMemory, setGameMemory] = useState<string[]>(() => safeParse(`bartender_gameMemory_${initialPersonaId}`, []));
   const DRUNK_THRESHOLD = 3;
   
   // Heart Rate State
   const [aiHeartRate, setAiHeartRate] = useState(75);
 
+  const handleSelectPersona = (id: string) => {
+    setSelectedPersonaId(id);
+    setSelectedIngredients(safeParse(`bartender_selectedIngredients_${id}`, []));
+    setGameState(safeParse(`bartender_gameState_${id}`, 'dice-roll'));
+    setBartenderComment(safeParse(`bartender_bartenderComment_${id}`, ''));
+    setQuestion(safeParse(`bartender_question_${id}`, ''));
+    setUserAnswer(safeParse(`bartender_userAnswer_${id}`, ''));
+    setHistory(safeParse(`bartender_history_${id}`, []));
+    setUserDice(safeParse(`bartender_userDice_${id}`, 0));
+    setAiDice(safeParse(`bartender_aiDice_${id}`, 0));
+    setWinner(safeParse(`bartender_winner_${id}`, null));
+    setIntoxication(safeParse(`bartender_intoxication_${id}`, 0));
+    setUserIntoxication(safeParse(`bartender_userIntoxication_${id}`, 0));
+    setGameMemory(safeParse(`bartender_gameMemory_${id}`, []));
+  };
+
   // Save state to localStorage
   useEffect(() => {
     localStorage.setItem('bartender_selectedPersonaId', JSON.stringify(selectedPersonaId));
-    localStorage.setItem('bartender_selectedIngredients', JSON.stringify(selectedIngredients));
-    localStorage.setItem('bartender_gameState', JSON.stringify(gameState));
-    localStorage.setItem('bartender_bartenderComment', JSON.stringify(bartenderComment));
-    localStorage.setItem('bartender_question', JSON.stringify(question));
-    localStorage.setItem('bartender_userAnswer', JSON.stringify(userAnswer));
-    localStorage.setItem('bartender_history', JSON.stringify(history));
-    localStorage.setItem('bartender_userDice', JSON.stringify(userDice));
-    localStorage.setItem('bartender_aiDice', JSON.stringify(aiDice));
-    localStorage.setItem('bartender_winner', JSON.stringify(winner));
-    localStorage.setItem('bartender_intoxication', JSON.stringify(intoxication));
-    localStorage.setItem('bartender_userIntoxication', JSON.stringify(userIntoxication));
-    localStorage.setItem('bartender_gameMemory', JSON.stringify(gameMemory));
+    if (selectedPersonaId) {
+      localStorage.setItem(`bartender_selectedIngredients_${selectedPersonaId}`, JSON.stringify(selectedIngredients));
+      localStorage.setItem(`bartender_gameState_${selectedPersonaId}`, JSON.stringify(gameState));
+      localStorage.setItem(`bartender_bartenderComment_${selectedPersonaId}`, JSON.stringify(bartenderComment));
+      localStorage.setItem(`bartender_question_${selectedPersonaId}`, JSON.stringify(question));
+      localStorage.setItem(`bartender_userAnswer_${selectedPersonaId}`, JSON.stringify(userAnswer));
+      localStorage.setItem(`bartender_history_${selectedPersonaId}`, JSON.stringify(history));
+      localStorage.setItem(`bartender_userDice_${selectedPersonaId}`, JSON.stringify(userDice));
+      localStorage.setItem(`bartender_aiDice_${selectedPersonaId}`, JSON.stringify(aiDice));
+      localStorage.setItem(`bartender_winner_${selectedPersonaId}`, JSON.stringify(winner));
+      localStorage.setItem(`bartender_intoxication_${selectedPersonaId}`, JSON.stringify(intoxication));
+      localStorage.setItem(`bartender_userIntoxication_${selectedPersonaId}`, JSON.stringify(userIntoxication));
+      localStorage.setItem(`bartender_gameMemory_${selectedPersonaId}`, JSON.stringify(gameMemory));
+    }
   }, [selectedPersonaId, selectedIngredients, gameState, bartenderComment, question, userAnswer, history, userDice, aiDice, winner, intoxication, userIntoxication, gameMemory]);
 
   // Simulate heart rate
@@ -456,7 +475,7 @@ export function BartenderGame({ onBack, apiSettings, personas, messages, setMess
             {personas.map(persona => (
               <button
                 key={persona.id}
-                onClick={() => setSelectedPersonaId(persona.id)}
+                onClick={() => handleSelectPersona(persona.id)}
                 className="bg-white/5 hover:bg-white/10 rounded-2xl p-5 flex flex-col items-center gap-4 border border-white/5 active:scale-95 transition-all shadow-lg shadow-black/20"
               >
                 <div className="relative">
