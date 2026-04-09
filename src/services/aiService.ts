@@ -229,7 +229,8 @@ export async function extractAndSaveMemory(
   userMessage: string,
   aiResponse: string,
   aiRef: React.MutableRefObject<GoogleGenAI | null>,
-  apiSettings: ApiSettings
+  apiSettings: ApiSettings,
+  personaId?: string
 ): Promise<void> {
   const apiKey = apiSettings.apiKey?.trim() || process.env.GEMINI_API_KEY;
   if (!apiKey) return;
@@ -252,7 +253,7 @@ AI说：${aiResponse}
     if (Array.isArray(memories) && memories.length > 0) {
       for (const m of memories) {
         if (typeof m === 'string') {
-          await memoryService.saveMemory(m, "");
+          await memoryService.saveMemory(m, "", personaId);
         }
       }
     }
@@ -513,7 +514,7 @@ export async function fetchAiResponse(
     if (!isSystemTask) {
       // Stagger memory extraction to avoid concurrent requests hitting rate limits
       setTimeout(() => {
-        extractAndSaveMemory(promptText, text, aiRef, effectiveApiSettings).catch(e => {
+        extractAndSaveMemory(promptText, text, aiRef, effectiveApiSettings, persona.id).catch(e => {
           console.error("Memory extraction background task failed:", e);
         });
       }, 3000 + Math.random() * 2000);
