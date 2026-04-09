@@ -3,6 +3,7 @@ import { ChevronLeft, Settings, Plus, Trash2, Image as ImageIcon, Download, Uplo
 import { ApiSettings, Persona, UserProfile, ThemeSettings } from '../types';
 import { generateId } from '../utils/id';
 import { repairJson } from '../utils';
+import { memoryService, UserMemory } from '../services/memoryService';
 
 interface Props {
   settings: ApiSettings;
@@ -39,10 +40,19 @@ export function ApiSettingsScreen({ settings, personas: initialPersonas, userPro
   const [fetchedModels, setFetchedModels] = useState<string[]>([]);
   const [personas, setPersonas] = useState<Persona[]>(initialPersonas);
   const [userProfile, setUserProfile] = useState<UserProfile>(initialUserProfile);
+  const [memories, setMemories] = useState<UserMemory | null>(null);
+  const [initialMemories, setInitialMemories] = useState<UserMemory | null>(null);
   const logsEndRef = useRef<HTMLDivElement>(null);
   const userAvatarInputRef = useRef<HTMLInputElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+
+  useEffect(() => {
+    memoryService.getMemories().then(m => {
+      setMemories(m);
+      setInitialMemories(m);
+    });
+  }, []);
 
   const hasChanges = apiUrl !== settings.apiUrl || 
                      apiKey !== settings.apiKey || 
@@ -64,7 +74,8 @@ export function ApiSettingsScreen({ settings, personas: initialPersonas, userPro
                      temperature !== settings.temperature || 
                      proactiveDelay !== settings.proactiveDelay ||
                      JSON.stringify(personas) !== JSON.stringify(initialPersonas) ||
-                     JSON.stringify(userProfile) !== JSON.stringify(initialUserProfile);
+                     JSON.stringify(userProfile) !== JSON.stringify(initialUserProfile) ||
+                     JSON.stringify(memories) !== JSON.stringify(initialMemories);
 
   const handleBack = () => {
     if (hasChanges) {
@@ -92,6 +103,15 @@ export function ApiSettingsScreen({ settings, personas: initialPersonas, userPro
   const [showToast, setShowToast] = useState(false);
 
   const handleSave = () => {
+    if (memories) {
+      const cleanedMemories = {
+        ...memories,
+        preferences: memories.preferences.filter(line => line.trim() !== '')
+      };
+      memoryService.updateMemories(cleanedMemories);
+      setMemories(cleanedMemories);
+      setInitialMemories(cleanedMemories);
+    }
     onSave({ 
       apiUrl, apiKey, model, 
       momentsApiUrl, momentsApiKey, momentsModel, autoPostMoments, autoUpdateStatus, isAutoXhsEnabled, isProactiveMessagingEnabled,
@@ -425,6 +445,34 @@ export function ApiSettingsScreen({ settings, personas: initialPersonas, userPro
               placeholder="例如：我是一个喜欢打游戏的大学生..."
               value={userProfile.persona || ''}
               onChange={(e) => setUserProfile({ ...userProfile, persona: e.target.value })}
+              className="w-full h-40 bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-[14px] text-neutral-900 leading-relaxed"
+            />
+          </div>
+
+          <div className="space-y-2 pt-2 border-t border-neutral-100">
+            <label className="text-[11px] font-medium text-neutral-500 uppercase tracking-wide flex justify-between items-center">
+              <span>长期记忆 (Long-term Memory)</span>
+              <span className="text-[10px] text-neutral-400 normal-case">每行一条</span>
+            </label>
+            <textarea 
+              placeholder="例如：喜欢吃辣&#10;家里有只猫..."
+              value={memories?.preferences.join('\n') || ''}
+              onChange={(e) => {
+                if (memories) {
+                  setMemories({
+                    ...memories,
+                    preferences: e.target.value.split('\n')
+                  });
+                }
+              }}
+              onBlur={() => {
+                if (memories) {
+                  setMemories({
+                    ...memories,
+                    preferences: memories.preferences.filter(line => line.trim() !== '')
+                  });
+                }
+              }}
               className="w-full h-40 bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-[14px] text-neutral-900 leading-relaxed"
             />
           </div>

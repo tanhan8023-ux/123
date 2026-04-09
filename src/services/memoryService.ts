@@ -17,6 +17,11 @@ export const memoryService = {
     };
   },
 
+  async updateMemories(memories: UserMemory): Promise<void> {
+    memories.lastUpdated = Date.now();
+    await localforage.setItem(MEMORY_STORAGE_KEY, memories);
+  },
+
   async saveMemory(preference: string, context: string): Promise<void> {
     const memories = await this.getMemories();
     if (preference && memories.preferences && !memories.preferences.includes(preference)) {
@@ -31,5 +36,10 @@ export const memoryService = {
     }
     memories.lastUpdated = Date.now();
     await localforage.setItem(MEMORY_STORAGE_KEY, memories);
+  },
+
+  async setMemories(newMemories: UserMemory): Promise<void> {
+    newMemories.lastUpdated = Date.now();
+    await localforage.setItem(MEMORY_STORAGE_KEY, newMemories);
   }
 };
