@@ -436,7 +436,15 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
           
           if (!response.responseText.includes('[NO_REPLY]')) {
             const isSegment = persona.isSegmentResponse || worldbook.forceSegmentResponse;
-            const texts = isSegment ? response.responseText.split(/[\n\r]+|\\n/).filter(t => t.trim()) : [response.responseText];
+            const rawTexts = isSegment ? response.responseText.split(/[\n\r]+|\\n/).filter(t => t.trim()) : [response.responseText];
+            const texts: string[] = [];
+            for (const t of rawTexts) {
+              if (texts.length > 0 && /^[\s。！？!?.,，;；：:…（）()\[\]【】「」“”"'']+$/.test(t) && t.length < 10) {
+                texts[texts.length - 1] += t;
+              } else {
+                texts.push(t);
+              }
+            }
 
             // Send segments one by one with real delay to allow interleaving
             (async () => {
@@ -653,7 +661,15 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
             if (responseText) {
               replyCount++;
               const isSegment = persona.isSegmentResponse || worldbook.forceSegmentResponse;
-              const texts = isSegment ? responseText.split(/[\n\r]+|\\n/).filter(t => t.trim()) : [responseText];
+              const rawTexts = isSegment ? responseText.split(/[\n\r]+|\\n/).filter(t => t.trim()) : [responseText];
+              const texts: string[] = [];
+              for (const t of rawTexts) {
+                if (texts.length > 0 && /^[\s。！？!?.,，;；：:…（）()\[\]【】「」“”"'']+$/.test(t) && t.length < 10) {
+                  texts[texts.length - 1] += t;
+                } else {
+                  texts.push(t);
+                }
+              }
 
               // Send segments one by one with real delay to allow interleaving
               (async () => {

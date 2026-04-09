@@ -527,17 +527,27 @@ export function TreeHoleScreen({ userProfile, personas, posts, setPosts, notific
         // Split by sentence endings (period, question mark, exclamation mark) or newlines
         // This matches the logic in ChatScreen for consistent segmentation
         const segmentsRaw = cleanedResponse.split(/([。！？\n.!?]+)/);
-        const segments: string[] = [];
+        const rawSegments: string[] = [];
         
         for (let i = 0; i < segmentsRaw.length; i++) {
           const part = segmentsRaw[i];
           if (!part.trim() && !part.match(/^[。！？\n.!?]+$/)) continue;
           
-          if (part.match(/^[。！？\n.!?]+$/) && segments.length > 0) {
+          if (part.match(/^[。！？\n.!?]+$/) && rawSegments.length > 0) {
             // Append punctuation to the previous segment
-            segments[segments.length - 1] += part;
+            rawSegments[rawSegments.length - 1] += part;
           } else if (part.trim()) {
-            segments.push(part);
+            rawSegments.push(part);
+          }
+        }
+
+        // Merge segments that are just punctuation into the previous segment (more robust check)
+        const segments: string[] = [];
+        for (const s of rawSegments) {
+          if (segments.length > 0 && /^[\s。！？!?.,，;；：:…（）()\[\]【】「」“”"'']+$/.test(s) && s.length < 10) {
+            segments[segments.length - 1] += s;
+          } else {
+            segments.push(s);
           }
         }
         

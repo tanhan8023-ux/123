@@ -162,13 +162,31 @@ export const processAiResponseParts = (responseText: string | { responseText: st
     }
   }
 
+  // Post-process to merge segments that are just punctuation into the previous segment
+  const mergedParts: any[] = [];
+  for (const part of processedParts) {
+    if (part.msgType === 'text' && mergedParts.length > 0) {
+      const prevPart = mergedParts[mergedParts.length - 1];
+      if (prevPart.msgType === 'text') {
+        // If current part is just punctuation (and maybe some whitespace)
+        // We use a regex that covers common Chinese and English punctuation
+        const isPunctuationOnly = /^[\s。！？!?.,，;；：:…（）()\[\]【】「」“”"'']+$/.test(part.text);
+        if (isPunctuationOnly && part.text.length < 10) { // Safety length check
+          prevPart.text += part.text;
+          continue;
+        }
+      }
+    }
+    mergedParts.push(part);
+  }
+
   // If no parts were created (e.g. empty response), add a fallback
-  if (processedParts.length === 0) {
-    processedParts.push({ msgType: 'text', text: '...' });
+  if (mergedParts.length === 0) {
+    mergedParts.push({ msgType: 'text', text: '...' });
   }
 
   return {
-    parts: processedParts,
+    parts: mergedParts,
     quotedMessageId: currentQuotedId,
     orderItems,
     shouldRecall,
