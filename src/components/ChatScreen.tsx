@@ -4,6 +4,7 @@ import { Message, Persona, UserProfile, ApiSettings, ThemeSettings, Moment, Comm
 import { GoogleGenAI } from '@google/genai';
 import { AnimatePresence, motion } from 'motion/react';
 import { fetchAiResponse as originalFetchAiResponse, generateMoment, checkIfPersonaIsOffline, summarizeChat, extractAndSaveMemory } from '../services/aiService';
+import { AiPhoneModal } from './AiPhoneModal';
 
 // Wrapper function to handle memory learning
 const fetchAiResponse = async (
@@ -1009,6 +1010,7 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
   const [tempAvatarFrameX, setTempAvatarFrameX] = useState(0);
   const [tempAvatarFrameY, setTempAvatarFrameY] = useState(0);
   const [tempAvatarPendant, setTempAvatarPendant] = useState('');
+  const [showAiPhoneModal, setShowAiPhoneModal] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const debouncedAiResponseTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -2738,7 +2740,7 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
         )}
         {activeTab === 'chat' && currentChatId && (
           <div className="flex items-center">
-            <button onClick={() => onNavigate('aiphones')} className="p-2 text-neutral-800 z-50">
+            <button onClick={() => setShowAiPhoneModal(true)} className="p-2 text-neutral-800 z-50">
               <Smartphone size={20} />
             </button>
             <button onClick={() => setShowChatSettings(!showChatSettings)} className="p-2 text-neutral-800 relative z-50">
@@ -6336,6 +6338,38 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
               </div>
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* AI Phone Modal */}
+      <AnimatePresence>
+        {showAiPhoneModal && currentPersona && (
+          <AiPhoneModal
+            persona={currentPersona}
+            onClose={() => setShowAiPhoneModal(false)}
+            onUpdatePersona={(updates) => {
+              setPersonas(prev => prev.map(p => p.id === currentPersona.id ? { ...p, ...updates } : p));
+            }}
+            allMessages={messages}
+            onSendMessageAsAi={(text) => {
+              const aiMsg: Message = {
+                id: generateId(),
+                personaId: currentPersona.id,
+                role: 'model',
+                text,
+                msgType: 'text',
+                timestamp: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }),
+                createdAt: Date.now(),
+                isRead: true
+              };
+              setMessages(prev => [...prev, aiMsg]);
+            }}
+            onCreateGroup={onCreateGroup}
+            userProfile={userProfile}
+            apiSettings={apiSettings}
+            worldbook={worldbook}
+            theme={theme}
+          />
         )}
       </AnimatePresence>
     </div>
