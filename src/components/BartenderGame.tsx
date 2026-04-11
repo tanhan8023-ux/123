@@ -446,6 +446,9 @@ export function BartenderGame({ onBack, apiSettings, personas, messages, setMess
                 addToMemory(`你问了用户真心话，用户的回答是：${userAnswer}`);
             }
         }
+      } catch (error) {
+        console.error("Submit answer error:", error);
+        setHistory(prev => [...prev, { role: 'system', text: '提交失败，请重试。' }]);
       } finally {
         setUserAnswer('');
         setIsLoading(false);

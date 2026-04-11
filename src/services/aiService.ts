@@ -72,10 +72,14 @@ export async function withRetry<T>(fn: () => Promise<T>, maxRetries = 6, initial
 
       if ((isRateLimit || isNetworkError) && retries < maxRetries) {
         retries++;
-        // Exponential backoff with jitter, capped at 20s
+        // Exponential backoff with jitter
         // For rate limits, we use a longer initial delay
-        const baseDelay = isRateLimit ? Math.max(initialDelay, 3000) : initialDelay;
-        const delay = Math.min(baseDelay * Math.pow(2, retries - 1), 20000) + Math.random() * 2000;
+        const baseDelay = isRateLimit ? Math.max(initialDelay, 3000) : 1000; // Shorter delay for network errors
+        // Cap network error retries to 2 to avoid long "typing..." hangs on CORS issues
+        if (isNetworkError && retries > 2) {
+           throw new Error("网络请求失败 (可能由于跨域 CORS 限制或网络不通)。如果您在本地文件(file://)中运行，请尝试使用支持跨域的 API 代理，或部署到服务器上。");
+        }
+        const delay = Math.min(baseDelay * Math.pow(2, retries - 1), 20000) + Math.random() * 1000;
         const reason = isRateLimit ? "Rate limit exceeded" : "Network error/Server error";
         console.warn(`${reason}. Retrying in ${Math.round(delay)}ms... (Attempt ${retries}/${maxRetries})`);
         await new Promise(resolve => setTimeout(resolve, delay));
@@ -84,6 +88,9 @@ export async function withRetry<T>(fn: () => Promise<T>, maxRetries = 6, initial
       
       if (isRateLimit) {
         throw new Error("AI 响应过快，请稍后再试 (Rate limit exceeded)");
+      }
+      if (isNetworkError) {
+        throw new Error("网络请求失败 (可能由于跨域 CORS 限制或网络不通)。如果您在本地文件(file://)中运行，请尝试使用支持跨域的 API 代理，或部署到服务器上。");
       }
       
       throw error;
