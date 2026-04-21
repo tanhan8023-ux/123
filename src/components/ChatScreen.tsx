@@ -5017,11 +5017,11 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
                     </div>
 
                     {[
-                      { title: '初次相遇', desc: '在雨后的咖啡馆，你们第一次擦肩而过...', icon: <Heart size={18} className="text-pink-500" /> },
-                      { title: '深夜谈心', desc: '凌晨两点，TA突然给你发来一条消息...', icon: <Moon size={18} className="text-indigo-500" /> },
-                      { title: '意外重逢', desc: '多年未见的前任，在异国的街头偶遇...', icon: <RefreshCw size={18} className="text-blue-500" /> },
-                      { title: '秘密任务', desc: '你们是潜伏在敌方的搭档，今晚有重要行动...', icon: <Shield size={18} className="text-neutral-700" /> },
-                      ...(userProfile.theaterScripts || []).map(s => ({ ...s, icon: <Film size={18} className="text-emerald-500" /> }))
+                      { title: '初次相遇', desc: '在雨后的咖啡馆，你们第一次擦肩而过...', icon: <Heart size={18} className="text-pink-500" />, isCustom: false },
+                      { title: '深夜谈心', desc: '凌晨两点，TA突然给你发来一条消息...', icon: <Moon size={18} className="text-indigo-500" />, isCustom: false },
+                      { title: '意外重逢', desc: '多年未见的前任，在异国的街头偶遇...', icon: <RefreshCw size={18} className="text-blue-500" />, isCustom: false },
+                      { title: '秘密任务', desc: '你们是潜伏在敌方的搭档，今晚有重要行动...', icon: <Shield size={18} className="text-neutral-700" />, isCustom: false },
+                      ...(userProfile.theaterScripts || []).map(s => ({ ...s, icon: <Film size={18} className="text-emerald-500" />, isCustom: true }))
                     ].map((script, i) => (
                       <div 
                         key={i}
@@ -5036,16 +5036,47 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
                             handleSend(startPrompt, 'text', undefined, undefined, undefined, undefined, script.title, undefined, true);
                           }
                         }}
-                        className="bg-white p-4 rounded-xl shadow-sm border border-neutral-200 flex items-center gap-4 active:bg-neutral-50 cursor-pointer transition-colors"
+                        className="bg-white p-4 rounded-xl shadow-sm border border-neutral-200 flex items-center gap-4 active:bg-neutral-50 cursor-pointer transition-colors relative"
                       >
                         <div className="w-12 h-12 bg-neutral-50 rounded-lg flex items-center justify-center shrink-0">
                           {script.icon}
                         </div>
-                        <div className="flex-1 min-w-0">
+                        <div className="flex-1 min-w-0 pr-8">
                           <h3 className="font-bold text-neutral-800 truncate">{script.title}</h3>
                           <p className="text-xs text-neutral-500 line-clamp-1 mt-0.5">{script.desc}</p>
                         </div>
-                        <ChevronLeft size={16} className="text-neutral-300 rotate-180" />
+                        
+                        {script.isCustom ? (
+                          <button
+                            onClick={(e) => {
+                               e.stopPropagation();
+                               if (window.confirm(`确定要删除自定义剧本"${script.title}"及相关聊天记录吗？此操作不可撤销。`)) {
+                                  setUserProfile(prev => ({
+                                    ...prev,
+                                    theaterScripts: prev.theaterScripts?.filter(s => s.title !== script.title)
+                                  }));
+                                  setMessages(prev => prev.filter(m => !(m.theaterId === script.title && m.personaId === currentPersona?.id)));
+                               }
+                            }}
+                            className="absolute right-4 p-2 text-red-300 hover:text-red-500 hover:bg-red-50 rounded-lg z-10 transition-colors"
+                            title="删除自定义剧本"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={(e) => {
+                               e.stopPropagation();
+                               if (window.confirm(`确定要清空与该剧本相关的历史聊天记录吗？此操作不可撤销。`)) {
+                                  setMessages(prev => prev.filter(m => !(m.theaterId === script.title && m.personaId === currentPersona?.id)));
+                               }
+                            }}
+                            className="absolute right-4 p-2 text-neutral-300 hover:text-red-500 hover:bg-red-50 rounded-lg z-10 transition-colors"
+                            title="清除聊天记录"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
