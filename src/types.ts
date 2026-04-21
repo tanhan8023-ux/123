@@ -208,6 +208,7 @@ export interface ThemeSettings {
   };
   dynamicStatusBg?: string;
   notificationSound?: string;
+  callRingtone?: string;
   fingerprintStyle?: 'default' | 'square' | 'neon' | 'minimal' | 'glass' | 'star' | 'heart' | 'diamond' | 'cyberpunk' | 'liquid' | 'luxury' | 'biometric';
   innerVoiceCss?: string;
   innerVoiceBgColor?: string;

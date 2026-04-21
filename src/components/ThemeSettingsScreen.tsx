@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { ChevronLeft, Image as ImageIcon, Type, Palette, Lock, Grid, CloudSun, MessageCircle, Download, Upload, Music, MessageSquare } from 'lucide-react';
+import { ChevronLeft, Image as ImageIcon, Type, Palette, Lock, Grid, CloudSun, MessageCircle, Download, Upload, Music, MessageSquare, Phone } from 'lucide-react';
 import { repairJson } from '../utils';
 import { ThemeSettings } from '../types';
 import localforage from 'localforage';
@@ -17,6 +17,13 @@ const DEFAULT_SOUNDS = [
   { name: '清脆', url: 'https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3' },
   { name: '水滴', url: 'https://assets.mixkit.co/active_storage/sfx/2578/2578-preview.mp3' },
   { name: '鸟鸣', url: 'https://assets.mixkit.co/active_storage/sfx/2359/2359-preview.mp3' },
+];
+
+const DEFAULT_RINGTONES = [
+  { name: '经典电话', url: 'https://assets.mixkit.co/active_storage/sfx/2870/2870-preview.mp3' },
+  { name: '清脆马林巴', url: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3' },
+  { name: '数字提醒', url: 'https://assets.mixkit.co/active_storage/sfx/2868/2868-preview.mp3' },
+  { name: '轻柔铃声', url: 'https://assets.mixkit.co/active_storage/sfx/2871/2871-preview.mp3' },
 ];
 
 const DEFAULT_THEME: ThemeSettings = {
@@ -51,6 +58,7 @@ export function ThemeSettingsScreen({ theme: initialTheme, onSave, onBack, onExp
   const weatherWidgetBgInputRef = useRef<HTMLInputElement>(null);
   const importThemeInputRef = useRef<HTMLInputElement>(null);
   const notificationSoundInputRef = useRef<HTMLInputElement>(null);
+  const callRingtoneInputRef = useRef<HTMLInputElement>(null);
   const [activeIconId, setActiveIconId] = React.useState<string | null>(null);
   const [showExitConfirm, setShowExitConfirm] = React.useState(false);
   const [jsonCode, setJsonCode] = React.useState(JSON.stringify(initialTheme, null, 2));
@@ -640,7 +648,7 @@ export function ThemeSettingsScreen({ theme: initialTheme, onSave, onBack, onExp
             className="w-full bg-white border border-neutral-200 rounded-xl p-4 flex items-center justify-between shadow-sm active:bg-neutral-50"
           >
             <span className="text-[15px] text-neutral-700">
-              {theme.notificationSound ? '已设置自定义提示音' : '选择提示音文件 (.mp3, .wav)'}
+              {theme.notificationSound && !DEFAULT_SOUNDS.find(s => s.url === theme.notificationSound) ? '已设置自定义提示音' : '选择提示音文件 (.mp3, .wav)'}
             </span>
             <span className="text-blue-500 text-sm font-medium">浏览</span>
           </button>
@@ -652,8 +660,8 @@ export function ThemeSettingsScreen({ theme: initialTheme, onSave, onBack, onExp
             onChange={(e) => handleAudioUpload(e, (url) => setThemeState({ ...theme, notificationSound: url }))}
           />
           {theme.notificationSound && (
-            <div className="flex items-center gap-2 ml-1">
-              <p className="text-xs text-green-600">✓ 已加载自定义提示音</p>
+            <div className="flex items-center gap-2 ml-1 mt-1">
+              <p className="text-xs text-green-600">✓ 已加载</p>
               <button 
                 onClick={(e) => {
                   e.stopPropagation();
@@ -668,6 +676,68 @@ export function ThemeSettingsScreen({ theme: initialTheme, onSave, onBack, onExp
                 onClick={(e) => {
                   e.stopPropagation();
                   setThemeState({ ...theme, notificationSound: undefined });
+                }}
+                className="text-xs text-red-500 underline ml-2"
+              >
+                清除
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Call Ringtone */}
+        <div className="space-y-3 mt-6">
+          <label className="text-[13px] font-medium text-neutral-500 ml-1 uppercase tracking-wide flex items-center gap-2">
+            <Phone size={14} /> 来电铃声
+          </label>
+          <div className="grid grid-cols-4 gap-2 mb-2">
+            {DEFAULT_RINGTONES.map((sound, i) => (
+              <button
+                key={i}
+                onClick={() => {
+                  setThemeState({ ...theme, callRingtone: sound.url });
+                  const audio = new Audio(sound.url);
+                  audio.play();
+                }}
+                className={`py-2 rounded-lg text-xs font-medium border transition-colors ${theme.callRingtone === sound.url ? 'bg-blue-50 border-blue-500 text-blue-600' : 'bg-white border-neutral-200 text-neutral-600'}`}
+              >
+                {sound.name}
+              </button>
+            ))}
+          </div>
+          <button 
+            onClick={() => callRingtoneInputRef.current?.click()}
+            className="w-full bg-white border border-neutral-200 rounded-xl p-4 flex items-center justify-between shadow-sm active:bg-neutral-50"
+          >
+            <span className="text-[15px] text-neutral-700">
+              {theme.callRingtone && !DEFAULT_RINGTONES.find(s => s.url === theme.callRingtone) ? '已设置自定义铃声' : '选择铃声文件 (.mp3, .wav)'}
+            </span>
+            <span className="text-blue-500 text-sm font-medium">浏览</span>
+          </button>
+          <input 
+            type="file" 
+            accept="audio/*" 
+            className="hidden" 
+            ref={callRingtoneInputRef}
+            onChange={(e) => handleAudioUpload(e, (url) => setThemeState({ ...theme, callRingtone: url }))}
+          />
+          {theme.callRingtone && (
+            <div className="flex items-center gap-2 ml-1 mt-1">
+              <p className="text-xs text-green-600">✓ 已加载</p>
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const audio = new Audio(theme.callRingtone);
+                  audio.play();
+                }}
+                className="text-xs text-blue-500 underline"
+              >
+                试听
+              </button>
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setThemeState({ ...theme, callRingtone: undefined });
                 }}
                 className="text-xs text-red-500 underline ml-2"
               >

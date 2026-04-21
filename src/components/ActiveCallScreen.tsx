@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Phone, PhoneOff, Mic, MicOff, Volume2, VolumeX, MessageSquare } from 'lucide-react';
-import { Persona, CallRecord, ApiSettings, WorldbookSettings, UserProfile } from '../types';
+import { Persona, CallRecord, ApiSettings, WorldbookSettings, UserProfile, ThemeSettings } from '../types';
 import { fetchAiResponse } from '../services/aiService';
 import { GoogleGenAI } from '@google/genai';
 
@@ -12,11 +12,12 @@ interface Props {
   apiSettings: ApiSettings;
   worldbook: WorldbookSettings;
   userProfile: UserProfile;
+  themeSettings: ThemeSettings;
   aiRef: React.MutableRefObject<GoogleGenAI | null>;
   setPersonas: React.Dispatch<React.SetStateAction<Persona[]>>;
 }
 
-export function ActiveCallScreen({ persona, type, onEndCall, apiSettings, worldbook, userProfile, aiRef, setPersonas }: Props) {
+export function ActiveCallScreen({ persona, type, onEndCall, apiSettings, worldbook, userProfile, themeSettings, aiRef, setPersonas }: Props) {
   const [status, setStatus] = useState<'ringing' | 'connected' | 'ended'>(type === 'incoming' ? 'ringing' : 'ringing');
   const [duration, setDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
@@ -36,6 +37,24 @@ export function ActiveCallScreen({ persona, type, onEndCall, apiSettings, worldb
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
+
+  useEffect(() => {
+    let audio: HTMLAudioElement | null = null;
+    
+    if (status === 'ringing' && type === 'incoming') {
+      const ringtoneUrl = themeSettings.callRingtone || 'https://assets.mixkit.co/active_storage/sfx/2870/2870-preview.mp3';
+      audio = new Audio(ringtoneUrl);
+      audio.loop = true;
+      audio.play().catch(e => console.error("Failed to play ringtone:", e));
+    }
+    
+    return () => {
+      if (audio) {
+        audio.pause();
+        audio.currentTime = 0;
+      }
+    };
+  }, [status, type, themeSettings.callRingtone]);
 
   useEffect(() => {
     if (type === 'outgoing' && status === 'ringing') {

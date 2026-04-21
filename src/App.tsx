@@ -3466,6 +3466,7 @@ ${phoneData}
               apiSettings={apiSettings}
               worldbook={worldbook}
               userProfile={userProfile}
+              themeSettings={theme}
               aiRef={aiRef}
               setPersonas={setPersonas}
             />
