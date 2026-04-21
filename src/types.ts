@@ -36,6 +36,7 @@ export interface Persona {
   };
   diaryEntries?: DiaryEntry[];
   balance?: number;
+  group?: string;
 }
 
 export interface DiaryEntry {

@@ -379,7 +379,18 @@ export function PersonaScreen({ worldbook: initialWorldbook, personas: initialPe
                 </div>
 
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <label className="text-[12px] font-medium text-neutral-600">通讯录分组</label>
+                    <input 
+                      type="text" 
+                      value={persona.group || ''}
+                      onChange={(e) => handleUpdatePersona(persona.id, 'group', e.target.value)}
+                      placeholder="例如：家人、同事、朋友... (留空则默认为无分组)"
+                      className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 outline-none focus:border-blue-500 text-[13px] text-neutral-900"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between border-t border-neutral-100 pt-3">
                     <div className="flex flex-col">
                       <span className="text-[13px] text-neutral-700">分段回复功能</span>
                       <span className="text-[10px] text-neutral-400">AI 将尝试分多条消息回复，模拟真人聊天节奏</span>
