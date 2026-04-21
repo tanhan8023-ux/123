@@ -5363,7 +5363,7 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
                       <motion.div 
                         initial={i === theaterMessages.length - 1 ? { opacity: 0, y: 10 } : false}
                         animate={{ opacity: 1, y: 0 }}
-                        className={`max-w-[90%] ${msg.role === 'user' ? 'text-white/90 text-right italic' : ''}`}
+                        className={`max-w-[90%] break-words ${msg.role === 'user' ? 'text-white/90 text-right italic' : ''}`}
                       >
                         {msg.text.split('\n').map((line, lineIdx) => {
                           if (!line.trim()) return <div key={lineIdx} className="h-2" />;
@@ -5372,7 +5372,7 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
                           const parts = line.split(/(\(.*?\))|(\*.*?\*)|(\uff08.*?\uff09)/g);
                           
                           return (
-                            <div key={lineIdx} className="mb-2">
+                            <div key={lineIdx} className="mb-2 break-words text-wrap">
                               {parts.map((part, partIdx) => {
                                 if (!part) return null;
                                 const isDescription = (part.startsWith('(') && part.endsWith(')')) || 
@@ -5386,7 +5386,7 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
                                   return (
                                     <span 
                                       key={partIdx} 
-                                      className="text-white/40 italic font-sans block my-1 pl-4"
+                                      className="text-white/40 italic font-sans block my-1 pl-4 break-words"
                                       style={{ 
                                         fontSize: `${theaterSettings.descriptionSize}px`,
                                         borderLeft: theaterSettings.showBorder ? '1px solid rgba(255,255,255,0.1)' : 'none'
@@ -5410,7 +5410,7 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
                                 return (
                                   <span 
                                     key={partIdx} 
-                                    className={`text-white leading-relaxed ${theaterSettings.fontSerif ? 'font-serif' : 'font-sans'}`}
+                                    className={`text-white leading-relaxed break-words inline-block ${theaterSettings.fontSerif ? 'font-serif' : 'font-sans'}`}
                                     style={{ fontSize: `${theaterSettings.dialogueSize}px` }}
                                   >
                                     {dialogueText}
