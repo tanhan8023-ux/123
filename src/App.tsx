@@ -1140,6 +1140,83 @@ export default function App() {
     }
   }, [messages, isReady, currentScreen, currentChatId]);
 
+  // Virtual Map Virtual Location Initialization & AI Context Trigger
+  useEffect(() => {
+    if (currentScreen === 'virtualmap' && currentChatId) {
+      const persona = personas.find(p => p.id === currentChatId);
+      if (persona && !persona.location) {
+        let userLocLat = 31.2304;
+        let userLocLng = 121.4737;
+        if (theme?.weatherLocation) {
+          const parts = theme.weatherLocation.split(/[,，]/);
+          if (parts.length >= 2) {
+            const lat = parseFloat(parts[0]);
+            const lng = parseFloat(parts[1]);
+            if (!isNaN(lat) && !isNaN(lng)) {
+              userLocLat = lat;
+              userLocLng = lng;
+            }
+          }
+        }
+
+        let aiLat = userLocLat;
+        let aiLng = userLocLng;
+
+        // Make the distance calculation nuanced
+        const isSuperClose = Math.random() < 0.3; // 30% chance they are within walking distance
+        if (isSuperClose) {
+          // approx < 500m
+           aiLat += (Math.random() - 0.5) * 0.005;
+           aiLng += (Math.random() - 0.5) * 0.005;
+        } else {
+          // approx up to ~11km
+           aiLat += (Math.random() > 0.5 ? 1 : -1) * (0.01 + Math.random() * 0.09);
+           aiLng += (Math.random() > 0.5 ? 1 : -1) * (0.01 + Math.random() * 0.09);
+        }
+
+        const distanceKm = Math.sqrt(Math.pow(userLocLat - aiLat, 2) + Math.pow(userLocLng - aiLng, 2)) * 111;
+
+        setPersonas(prev => prev.map(p => {
+          if (p.id === currentChatId) {
+            return {
+              ...p,
+              location: {
+                latitude: aiLat,
+                longitude: aiLng,
+                address: '实时共享位置',
+                lastUpdated: Date.now()
+              }
+            };
+          }
+          return p;
+        }));
+
+        // Automatically trigger AI reaction Context
+        if (distanceKm < 1) {
+          const distanceMeters = Math.round(distanceKm * 1000);
+          const hiddenContextMsg: Message = {
+            id: generateId(),
+            personaId: currentChatId,
+            role: 'user',
+            text: `[系统消息：用户打开了与你的虚拟位置共享地图。你从地图上发现你们现在的距离非常近，只有大约 ${distanceMeters} 米！请立即在心里产生一些微妙的想法，并在回复中表现出你的反应（可能很开心、惊讶、害羞、或假装不在意等，符合你的人设）。可以在接下来的聊天中通过动作描写或话语顺便提及距离很近的事。]`,
+            msgType: 'system',
+            hidden: true,
+            createdAt: Date.now()
+          };
+          setMessages(prev => [...prev, hiddenContextMsg]);
+          
+          if (persona.allowActiveMessaging !== false) { // Assuming if not explicitly false, AI might send proactive
+              // Small delay
+              setTimeout(() => {
+                triggerAiResponse({ personaId: currentChatId, text: '', msgType: 'text', userMsgId: hiddenContextMsg.id });
+              }, 1500);
+          }
+        }
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentScreen, currentChatId, theme?.weatherLocation]);
+
   // Autonomous Status Update
   useEffect(() => {
     if (!isReady || apiSettings.autoUpdateStatus === false) return;
