@@ -1263,7 +1263,18 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
             const promptText = `[系统提示：距离上次聊天已经过了一会儿，请根据聊天记录中的上下文主动找用户说句话。你可以开启新话题，也可以对之前的对话进行补充或追问。如果你想发起收款，请包含 [REQUEST: 金额]。如果你想主动转账给用户，请包含 [TRANSFER: 金额]。必须完全符合你的人设，语气自然，像真人一样发微信。不要说太客套的话，要像真正的朋友或恋人一样自然。]`;
             const contextMessages = currentMessages.slice(-50).map(m => ({
               role: m.role === 'model' ? 'assistant' : 'user',
-              content: `[ID: ${m.id}] ${m.isRecalled ? '[此消息已撤回]' : m.text}`
+              content: `[ID: ${m.id}] ${m.isRecalled ? '[此消息已撤回]' : (
+                m.msgType === 'transfer' ? (
+                  m.isRequest ? (m.role === 'user' ? `用户向你发起了 ${m.amount} 元的收款请求` : `我向用户发起了 ${m.amount} 元的收款请求`) :
+                  m.isRefund ? (m.role === 'user' ? `用户向你退还了 ${m.amount} 元` : `我向用户退还了 ${m.amount} 元`) :
+                  m.isReceived ? (m.role === 'user' ? `用户已收下你转账的 ${m.amount} 元` : `我已收下用户转账的 ${m.amount} 元`) :
+                  (m.role === 'user' ? 
+                    `用户向你转账了 ${m.amount} 元${m.transferNote ? `，备注是：“${m.transferNote}”` : ''}` :
+                    `我向用户转账了 ${m.amount} 元${m.transferNote ? `，备注是：“${m.transferNote}”` : ''}`)
+                ) : 
+                m.msgType === 'music' && m.song ? `用户分享了歌曲《${m.song.title}》` :
+                m.text
+              )}`
             }));
             const aiResponse = await fetchAiResponse(
               promptText, 
@@ -1695,9 +1706,12 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
           role: m.role === 'model' ? 'assistant' : 'user',
           content: `[ID: ${m.id}] ${m.isRecalled ? '[此消息已撤回]' : (
                    m.msgType === 'transfer' ? (
-                     m.role === 'user' ? 
+                     m.isRequest ? (m.role === 'user' ? `用户向你发起了 ${m.amount} 元的收款请求` : `我向用户发起了 ${m.amount} 元的收款请求`) :
+                     m.isRefund ? (m.role === 'user' ? `用户向你退还了 ${m.amount} 元` : `我向用户退还了 ${m.amount} 元`) :
+                     m.isReceived ? (m.role === 'user' ? `用户已收下你转账的 ${m.amount} 元` : `我已收下用户转账的 ${m.amount} 元`) :
+                     (m.role === 'user' ? 
                        `用户向你转账了 ${m.amount} 元${m.transferNote ? `，备注是：“${m.transferNote}”` : ''}` :
-                       `我向用户转账了 ${m.amount} 元${m.transferNote ? `，备注是：“${m.transferNote}”` : ''}`
+                       `我向用户转账了 ${m.amount} 元${m.transferNote ? `，备注是：“${m.transferNote}”` : ''}`)
                    ) : 
                    m.msgType === 'relativeCard' ? (
                      m.role === 'user' ?
@@ -1773,6 +1787,8 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
         // Flatten all parts into a single sequence of messages
         const finalParts = processed.parts;
 
+        let isRefunded = finalParts.some(p => p.msgType === 'transfer' && p.isRefund);
+        
         for (let i = 0; i < finalParts.length; i++) {
           const part = finalParts[i];
           const typingDelay = Math.min((part.text || '...').length * 20, 800) + Math.random() * 200;
@@ -1804,8 +1820,14 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
           lastAiMsgId = aiMsg.id;
           setMessages(prev => {
             const updatedMessages = prev.map(m => {
+              if (m.id === userMsg.id && userMsg.msgType === 'transfer' && !isRefunded && (!m.transferStatus || m.transferStatus === 'pending')) {
+                return { ...m, isRead: true, status: 'read' as const, transferStatus: 'accepted' as const };
+              }
+              if (m.id === userMsg.id && userMsg.msgType === 'transfer' && isRefunded && (!m.transferStatus || m.transferStatus === 'pending')) {
+                return { ...m, isRead: true, status: 'read' as const, transferStatus: 'rejected' as const };
+              }
               if (m.role === 'user' && !m.isRead) {
-                return { ...m, isRead: true, status: 'read' };
+                return { ...m, isRead: true, status: 'read' as const };
               }
               return m;
             });
@@ -2182,13 +2204,31 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
       const currentPersona = personas.find(p => p.id === msg.personaId);
       if (!currentPersona) return;
 
-      const promptText = `[系统提示：用户想知道你此刻的心声（内心真实想法，不要发出来，只是在心里默默想的）。请针对你刚才说的这句话：“${msg.text}”，用内心独白的语气补充你的真实想法。简短一点，不要超过30个字。严禁包含任何 [QUOTE: xxx], [TRANSFER: xxx], [REQUEST: xxx], [STICKER: xxx] 等特殊指令标签。请务必在心声开头加上一个表情符号来代表此刻的心情，格式为：[MOOD: 😡] 心声内容。例如：[MOOD: 😡] 真是气死我了。]`;
+      const actionDesc = msg.msgType === 'transfer' ? (
+        msg.isRequest ? `发起了一笔 ${msg.amount} 元的收款请求` :
+        msg.isRefund ? `退还了 ${msg.amount} 元` :
+        msg.isReceived ? `收下了 ${msg.amount} 元` :
+        `转账了 ${msg.amount} 元`
+      ) : msg.text;
+
+      const promptText = `[系统提示：用户想知道你此刻的心声（内心真实想法，不要发出来，只是在心里默默想的）。请针对你刚才做的动作/说的这句话：“${actionDesc}”，用内心独白的语气补充你的真实想法。简短一点，不要超过30个字。严禁包含任何 [QUOTE: xxx], [TRANSFER: xxx], [REQUEST: xxx], [STICKER: xxx] 等特殊指令标签。请务必在心声开头加上一个表情符号来代表此刻的心情，格式为：[MOOD: 😡] 心声内容。例如：[MOOD: 😡] 真是气死我了。]`;
       
       // Context: previous messages up to this message
       const msgIndex = currentMessages.findIndex(m => m.id === msg.id);
       const contextMessages = currentMessages.slice(Math.max(0, msgIndex - 5), msgIndex + 1).map(m => ({
         role: m.role === 'model' ? 'assistant' : 'user',
-        content: `[ID: ${m.id}] ${m.text}`
+        content: `[ID: ${m.id}] ${m.isRecalled ? '[此消息已撤回]' : (
+          m.msgType === 'transfer' ? (
+            m.isRequest ? (m.role === 'user' ? `用户向你发起了 ${m.amount} 元的收款请求` : `我向用户发起了 ${m.amount} 元的收款请求`) :
+            m.isRefund ? (m.role === 'user' ? `用户向你退还了 ${m.amount} 元` : `我向用户退还了 ${m.amount} 元`) :
+            m.isReceived ? (m.role === 'user' ? `用户已收下你转账的 ${m.amount} 元` : `我已收下用户转账的 ${m.amount} 元`) :
+            (m.role === 'user' ? 
+              `用户向你转账了 ${m.amount} 元${m.transferNote ? `，备注是：“${m.transferNote}”` : ''}` :
+              `我向用户转账了 ${m.amount} 元${m.transferNote ? `，备注是：“${m.transferNote}”` : ''}`)
+          ) : 
+          m.msgType === 'music' && m.song ? `用户分享了歌曲《${m.song.title}》` :
+          m.text
+        )}`
       }));
       
       const aiResponse = await fetchAiResponse(
@@ -2262,7 +2302,12 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
     setIsTyping(true); // Also show typing bubble
 
     try {
-      const promptText = lastUserMsg.msgType === 'transfer' ? `[系统提示：用户向你转账了 ${lastUserMsg.amount} 元。你可以选择收下并回复，或者如果你想退还，请在回复中包含 [REFUND: 金额, 备注]。如果你想主动发起收款，请包含 [REQUEST: 金额, 备注]。如果你想主动转账给用户，请包含 [TRANSFER: 金额, 备注]。请作出符合你人设的反应]` : 
+      const promptText = lastUserMsg.msgType === 'transfer' ? (
+                           lastUserMsg.isRequest ? `[系统提示：用户向你发起了 ${lastUserMsg.amount} 元的收款请求。你可以选择支付大额转账，请包含 [TRANSFER: 金额, 备注]。]` :
+                           lastUserMsg.isRefund ? `[系统提示：用户向你退还了 ${lastUserMsg.amount} 元。你可以作出符合人设的反应。]` :
+                           lastUserMsg.isReceived ? `[系统提示：用户已收下你转账的 ${lastUserMsg.amount} 元。请作出符合人设的反应。]` :
+                           `[系统提示：用户向你转账了 ${lastUserMsg.amount} 元。你可以选择收下并回复，或者如果你想退还，请在回复中包含 [REFUND: 金额, 备注]。如果你想主动发起收款，请包含 [REQUEST: 金额, 备注]。如果你想主动转账给用户，请包含 [TRANSFER: 金额, 备注]。请作出符合你人设的反应]`
+                         ) : 
                          lastUserMsg.msgType === 'music' && lastUserMsg.song ? `[系统提示：用户分享了歌曲《${lastUserMsg.song.title}》。请作出符合你人设的反应]` :
                          `[系统提示：用户说：${lastUserMsg.text}。你可以选择正常回复，或者如果你想发起收款，请包含 [REQUEST: 金额, 备注]。如果你想主动转账给用户，请包含 [TRANSFER: 金额, 备注]。如果你想赠送亲属卡，请包含 [RELATIVE_CARD: 额度]。请作出符合你人设的反应。注意：不要用文字描述转账/赠送等动作，必须使用对应的标签。]`;
       
@@ -2270,9 +2315,12 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
       const contextMessages = currentMessages.slice(Math.max(0, lastUserMsgIndex - 50), lastUserMsgIndex).map(m => ({
         role: m.role === 'model' ? 'assistant' : 'user',
         content: `[ID: ${m.id}] ${m.msgType === 'transfer' ? (
-          m.role === 'user' ? 
-            `用户向你转账了 ${m.amount} 元` : 
-            `我向用户转账了 ${m.amount} 元`
+          m.isRequest ? (m.role === 'user' ? `用户向你发起了 ${m.amount} 元的收款请求` : `我向用户发起了 ${m.amount} 元的收款请求`) :
+          m.isRefund ? (m.role === 'user' ? `用户向你退还了 ${m.amount} 元` : `我向用户退还了 ${m.amount} 元`) :
+          m.isReceived ? (m.role === 'user' ? `用户已收下你转账的 ${m.amount} 元` : `我已收下用户转账的 ${m.amount} 元`) :
+          (m.role === 'user' ? 
+            `用户向你转账了 ${m.amount} 元${m.transferNote ? `，备注是：“${m.transferNote}”` : ''}` : 
+            `我向用户转账了 ${m.amount} 元${m.transferNote ? `，备注是：“${m.transferNote}”` : ''}`)
         ) : 
         m.msgType === 'music' && m.song ? `用户分享了歌曲《${m.song.title}》` :
         m.text}`
@@ -2309,6 +2357,8 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
 
       const finalParts = processed.parts;
 
+      let isRefunded = finalParts.some(p => p.msgType === 'transfer' && p.isRefund);
+
       for (let i = 0; i < finalParts.length; i++) {
         const part = finalParts[i];
         const typingDelay = Math.min((part.text || '...').length * 20, 800) + Math.random() * 200;
@@ -2338,7 +2388,16 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
         };
         
         setMessages(prev => {
-          return [...prev, aiMsg];
+          const updatedMessages = prev.map(m => {
+            if (m.id === lastUserMsg.id && lastUserMsg.msgType === 'transfer' && !isRefunded && (!m.transferStatus || m.transferStatus === 'pending')) {
+              return { ...m, transferStatus: 'accepted' as const };
+            }
+            if (m.id === lastUserMsg.id && lastUserMsg.msgType === 'transfer' && isRefunded && (!m.transferStatus || m.transferStatus === 'pending')) {
+              return { ...m, transferStatus: 'rejected' as const };
+            }
+            return m;
+          });
+          return [...updatedMessages, aiMsg];
         });
       }
 

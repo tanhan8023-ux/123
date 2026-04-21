@@ -1857,9 +1857,12 @@ ${recentMsgs}`;
           role: m.role === 'model' ? 'model' : 'user',
           content: m.isRecalled ? '[此消息已撤回]' : (
                    m.msgType === 'transfer' ? (
-                     m.role === 'user' ? 
+                     m.isRequest ? (m.role === 'user' ? `用户向你发起了 ${m.amount} 元的收款请求` : `我向用户发起了 ${m.amount} 元的收款请求`) :
+                     m.isRefund ? (m.role === 'user' ? `用户向你退还了 ${m.amount} 元` : `我向用户退还了 ${m.amount} 元`) :
+                     m.isReceived ? (m.role === 'user' ? `用户已收下你转账的 ${m.amount} 元` : `我已收下用户转账的 ${m.amount} 元`) :
+                     (m.role === 'user' ? 
                        `用户向你转账了 ${m.amount} 元${m.transferNote ? `，备注是：“${m.transferNote}”` : ''}` :
-                       (m.isReceived ? `我收到了用户的转账 ${m.amount} 元` : `我向用户转账了 ${m.amount} 元${m.transferNote ? `，备注是：“${m.transferNote}”` : ''}`)
+                       `我向用户转账了 ${m.amount} 元${m.transferNote ? `，备注是：“${m.transferNote}”` : ''}`)
                    ) : 
                    m.msgType === 'relativeCard' ? (
                      m.role === 'user' ?
