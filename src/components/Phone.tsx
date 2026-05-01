@@ -83,8 +83,8 @@ export function Phone({ children, onHomeClick, theme, hideHomeIndicator }: { chi
             </div>
           )}
 
-          {/* Main Background - Centered in Immersive Mode */}
-          <div className={`relative z-10 w-full h-full ${theme.immersiveMode ? 'max-w-[480px] mx-auto shadow-2xl' : ''}`}>
+          {/* Main Background - Centered in Immersive Mode if phone */}
+          <div className={`relative z-10 w-full h-full ${theme.immersiveMode ? (theme.deviceType === 'tablet' || theme.deviceType === 'desktop' ? 'max-w-none shadow-2xl' : 'max-w-[480px] mx-auto shadow-2xl') : ''}`}>
             {theme.wallpaper ? (
               <img 
                 src={theme.wallpaper} 

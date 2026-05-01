@@ -294,7 +294,7 @@ export function ThemeSettingsScreen({ theme: initialTheme, onSave, onBack, onExp
               <ImageIcon size={12} /> 桌面壁纸
             </label>
             <div 
-              className="w-full aspect-[9/16] bg-white border border-neutral-200 rounded-xl flex items-center justify-center cursor-pointer overflow-hidden relative shadow-sm"
+              className={`w-full ${theme.deviceType === 'desktop' ? 'aspect-video' : theme.deviceType === 'tablet' ? 'aspect-[3/4]' : 'aspect-[9/16]'} bg-white border border-neutral-200 rounded-xl flex items-center justify-center cursor-pointer overflow-hidden relative shadow-sm transition-all`}
               onClick={() => wallpaperInputRef.current?.click()}
             >
               {theme.wallpaper ? (
