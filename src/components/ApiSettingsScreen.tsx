@@ -204,14 +204,22 @@ export function ApiSettingsScreen({ settings, personas: initialPersonas, userPro
 
       if (apiUrl) {
         // OpenAI compatible endpoint
-        let baseUrl = apiUrl;
+        let baseUrl = apiUrl.trim();
+        if (baseUrl.endsWith('/')) {
+          baseUrl = baseUrl.slice(0, -1);
+        }
         if (baseUrl.endsWith('/chat/completions')) {
           baseUrl = baseUrl.replace('/chat/completions', '');
         } else if (baseUrl.endsWith('/v1/messages')) {
           baseUrl = baseUrl.replace('/v1/messages', '');
+        } else if (baseUrl.endsWith('/models')) {
+          baseUrl = baseUrl.replace('/models', '');
         }
-        endpoint = baseUrl.endsWith('/') ? `${baseUrl}models` : `${baseUrl}/models`;
-        headers['Authorization'] = `Bearer ${actualApiKey}`;
+        endpoint = `${baseUrl}/models`;
+        if (actualApiKey) {
+          headers['Authorization'] = `Bearer ${actualApiKey}`;
+        }
+        delete headers['Content-Type']; // Remove content-type to avoid unnecessary preflight
       } else {
         // Default Gemini API
         endpoint = `https://generativelanguage.googleapis.com/v1beta/models?key=${actualApiKey}`;

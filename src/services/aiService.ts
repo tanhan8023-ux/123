@@ -109,10 +109,13 @@ async function callAi(params: {
   signal?: AbortSignal;
 }) {
   if (params.apiUrl) {
-    let endpoint = params.apiUrl;
+    let endpoint = params.apiUrl.trim();
+    if (endpoint.endsWith('/')) {
+      endpoint = endpoint.slice(0, -1);
+    }
     // 自动补全 OpenAI 兼容端点
     if (!endpoint.endsWith('/chat/completions') && !endpoint.endsWith('/v1/messages')) {
-      endpoint = endpoint.endsWith('/') ? `${endpoint}chat/completions` : `${endpoint}/chat/completions`;
+      endpoint = `${endpoint}/chat/completions`;
     }
 
     const rawMessages = params.messages.map(m => ({
