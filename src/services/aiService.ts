@@ -245,10 +245,15 @@ export async function extractAndSaveMemory(
   const apiKey = apiSettings.apiKey?.trim() || process.env.GEMINI_API_KEY;
   if (!apiKey) return;
 
-  const prompt = `分析对话并提取记忆。
+  const prompt = `分析对话并分别提取关于“用户”和“AI角色”的关键记忆或设定（如爱好、习惯、近期状态、重要事件等）。
 用户说：${userMessage}
 AI说：${aiResponse}
-请提取关键信息（如爱好、习惯、重要事件等），以JSON数组格式输出，如：["喜欢吃辣", "家里有只猫"]。如果没有新信息，输出空数组 []。`;
+请以JSON对象格式输出，包含两个数组，例如：
+{
+  "user": ["喜欢吃辣", "家里有只猫", "明天要考试"],
+  "persona": ["喜欢喝咖啡", "害怕打雷"]
+}
+如果没有新信息，对应的数组请留空 []。确保仅输出合法的JSON对象。`;
 
   try {
     const text = await withRetry(() => callAi({
@@ -259,11 +264,23 @@ AI说：${aiResponse}
       aiRef
     }), 3, 5000); // Fewer retries, longer delay for background task
     
-    const memories = JSON.parse(text.match(/\[[\s\S]*\]/)?.[0] || "[]");
-    if (Array.isArray(memories) && memories.length > 0) {
-      for (const m of memories) {
+    const jsonMatch = text.match(/\{[\s\S]*\}/)?.[0] || '{"user":[], "persona":[]}';
+    const result = JSON.parse(jsonMatch);
+    
+    // Save user memories globally
+    if (Array.isArray(result.user) && result.user.length > 0) {
+      for (const m of result.user) {
         if (typeof m === 'string') {
-          await memoryService.saveMemory(m, "", personaId);
+          await memoryService.saveMemory(m, ""); // Save globally without personaId
+        }
+      }
+    }
+
+    // Save persona memories specifically
+    if (Array.isArray(result.persona) && result.persona.length > 0 && personaId) {
+      for (const m of result.persona) {
+        if (typeof m === 'string') {
+          await memoryService.saveMemory(m, "", personaId); // Save with personaId
         }
       }
     }
