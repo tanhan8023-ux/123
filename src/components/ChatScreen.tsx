@@ -3,7 +3,7 @@ import { ChevronLeft, Loader2, Plus, ArrowLeftRight, MessageCircle, Compass, Nav
 import { Message, Persona, UserProfile, ApiSettings, ThemeSettings, Moment, Comment, WorldbookSettings, Transaction, Screen, GroupChat, Order } from '../types';
 import { GoogleGenAI } from '@google/genai';
 import { AnimatePresence, motion } from 'motion/react';
-import { fetchAiResponse as originalFetchAiResponse, generateMoment, checkIfPersonaIsOffline, summarizeChat, extractAndSaveMemory } from '../services/aiService';
+import { fetchAiResponse as originalFetchAiResponse, generateMoment, checkIfPersonaIsOffline, summarizeChat, extractAndSaveMemory, generateSpeechUrl } from '../services/aiService';
 import { AiPhoneModal } from './AiPhoneModal';
 
 // Wrapper function to handle memory learning
@@ -218,6 +218,8 @@ export function ChatScreen({
   const [summaryResult, setSummaryResult] = useState<string | null>(null);
   const [showFavorites, setShowFavorites] = useState(false);
   const [activeMessageMenu, setActiveMessageMenu] = useState<string | null>(null);
+  const [playingMessageId, setPlayingMessageId] = useState<string | null>(null);
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const [revealedRecalledIds, setRevealedRecalledIds] = useState<string[]>([]);
   const [quotedMessage, setQuotedMessage] = useState<Message | null>(null);
   const [showTheaterSettings, setShowTheaterSettings] = useState(false);
@@ -1496,6 +1498,47 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
   };
 
   const lastSentMessageRef = useRef<{ text: string, time: number } | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (currentAudioRef.current) {
+        currentAudioRef.current.pause();
+        currentAudioRef.current = null;
+      }
+    };
+  }, []);
+
+  const handlePlayVoice = async (msg: Message) => {
+    setActiveMessageMenu(null);
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current = null;
+    }
+    setPlayingMessageId(null);
+    
+    // Toggle off if they clicked the playing message
+    if (playingMessageId === msg.id) return;
+    
+    setPlayingMessageId(msg.id);
+    const text = msg.text.replace(/\[.*?\]/g, '').replace(/\|\|NEXT:.*\|\|/g, '').trim();
+    const url = await generateSpeechUrl(text, apiSettings);
+    if (url) {
+      const audio = new Audio(url);
+      currentAudioRef.current = audio;
+      audio.onended = () => {
+        setPlayingMessageId(null);
+      };
+      audio.onerror = () => {
+        setPlayingMessageId(null);
+      };
+      audio.play().catch(e => {
+        console.error('Failed to play audio:', e);
+        setPlayingMessageId(null);
+      });
+    } else {
+      setPlayingMessageId(null);
+    }
+  };
 
   const handleSend = async (text: string, msgType: 'text' | 'transfer' | 'relativeCard' | 'sticker' | 'listenTogether' | 'system' | 'image' | 'location' = 'text', amount?: number, transferNote?: string, relativeCard?: { limit: number; status: 'active' | 'cancelled' }, sticker?: string, theaterId?: string, imageUrl?: string, hidden?: boolean, imageDescription?: string, location?: { latitude: number; longitude: number; address?: string }) => {
     if ((!text.trim() && msgType === 'text') || (!currentPersona && !currentGroup)) return;
@@ -6186,6 +6229,18 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
                         <RotateCcw size={24} />
                       </div>
                       <span className="text-[12px] text-neutral-600 font-medium">撤回</span>
+                    </button>
+                  )}
+
+                  {msg.msgType === 'text' && msg.text.trim() && (
+                    <button 
+                      onClick={() => handlePlayVoice(msg)}
+                      className="flex flex-col items-center gap-2"
+                    >
+                      <div className={`w-14 h-14 ${playingMessageId === msg.id ? 'bg-indigo-100 text-indigo-500' : 'bg-indigo-50 text-indigo-400'} rounded-2xl flex items-center justify-center active:scale-90 transition-transform`}>
+                        {playingMessageId === msg.id ? <Loader2 size={24} className="animate-spin" /> : <Play size={24} />}
+                      </div>
+                      <span className="text-[12px] text-neutral-600 font-medium">{playingMessageId === msg.id ? '停止播放' : '朗读'}</span>
                     </button>
                   )}
 

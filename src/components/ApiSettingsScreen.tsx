@@ -30,6 +30,10 @@ export function ApiSettingsScreen({ settings, personas: initialPersonas, userPro
   const [voiceApiUrl, setVoiceApiUrl] = useState(settings.voiceApiUrl || '');
   const [voiceApiKey, setVoiceApiKey] = useState(settings.voiceApiKey || '');
   const [voiceParams, setVoiceParams] = useState(settings.voiceParams || '');
+  const [voiceCloningAudioUrl, setVoiceCloningAudioUrl] = useState(settings.voiceCloningAudioUrl || '');
+  const [voiceCloningAudioText, setVoiceCloningAudioText] = useState(settings.voiceCloningAudioText || '');
+  const [isUploadingVoice, setIsUploadingVoice] = useState(false);
+  const voiceInputRef = useRef<HTMLInputElement>(null);
   const [asrModel, setAsrModel] = useState(settings.asrModel || '');
   const [asrApiUrl, setAsrApiUrl] = useState(settings.asrApiUrl || '');
   const [asrApiKey, setAsrApiKey] = useState(settings.asrApiKey || '');
@@ -80,6 +84,8 @@ export function ApiSettingsScreen({ settings, personas: initialPersonas, userPro
                      voiceApiUrl !== (settings.voiceApiUrl || '') ||
                      voiceApiKey !== (settings.voiceApiKey || '') ||
                      voiceParams !== (settings.voiceParams || '') ||
+                     voiceCloningAudioUrl !== (settings.voiceCloningAudioUrl || '') ||
+                     voiceCloningAudioText !== (settings.voiceCloningAudioText || '') ||
                      asrModel !== (settings.asrModel || '') ||
                      asrApiUrl !== (settings.asrApiUrl || '') ||
                      asrApiKey !== (settings.asrApiKey || '') ||
@@ -141,6 +147,7 @@ export function ApiSettingsScreen({ settings, personas: initialPersonas, userPro
       apiUrl, apiKey, model, 
       momentsApiUrl, momentsApiKey, momentsModel, autoPostMoments, autoUpdateStatus, isAutoXhsEnabled, isProactiveMessagingEnabled,
       voiceModel, voiceApiUrl, voiceApiKey, voiceParams, 
+      voiceCloningAudioUrl, voiceCloningAudioText,
       asrModel, asrApiUrl, asrApiKey, asrParams, 
       temperature, proactiveDelay 
     }, personas, userProfile);
@@ -746,13 +753,15 @@ export function ApiSettingsScreen({ settings, personas: initialPersonas, userPro
           </div>
 
           <div className="space-y-2">
-            <label className="text-[11px] font-medium text-neutral-500 uppercase tracking-wider ml-1">语音模型 (Voice Model)</label>
+            <div className="flex justify-between items-center">
+              <label className="text-[11px] font-medium text-neutral-500 uppercase tracking-wider ml-1">语音模型 (Voice/TTS Model)</label>
+            </div>
             <input 
               type="text" 
               value={voiceModel}
               onChange={(e) => setVoiceModel(e.target.value)}
               className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-[13px] text-neutral-800"
-              placeholder="gemini-2.5-flash-preview-tts"
+              placeholder="e.g. OpenBMB/VoxCPM-2.4B（硅基流动推荐）"
             />
           </div>
 
@@ -763,7 +772,7 @@ export function ApiSettingsScreen({ settings, personas: initialPersonas, userPro
               value={voiceApiUrl}
               onChange={(e) => setVoiceApiUrl(e.target.value)}
               className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-[13px] text-neutral-800"
-              placeholder="留空则使用默认"
+              placeholder="留空自动识别 (如硅基流动默认为 https://api.siliconflow.cn/v1/audio/speech)"
             />
           </div>
 
@@ -774,7 +783,7 @@ export function ApiSettingsScreen({ settings, personas: initialPersonas, userPro
               value={voiceApiKey}
               onChange={(e) => setVoiceApiKey(e.target.value)}
               className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-[13px] text-neutral-800 tracking-widest"
-              placeholder="留空则使用系统自带"
+              placeholder="留空则复用主要 API Key"
             />
           </div>
 
@@ -786,6 +795,84 @@ export function ApiSettingsScreen({ settings, personas: initialPersonas, userPro
               className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-[13px] text-neutral-800 font-mono"
               placeholder='{"key": "value"}'
               rows={3}
+            />
+          </div>
+
+          <div className="space-y-2 pt-2">
+            <div className="flex justify-between items-center">
+              <label className="text-[11px] font-medium text-neutral-500 uppercase tracking-wider ml-1">语音克隆 / 提示音频 (Ref Audio)</label>
+              <div className="flex gap-2">
+                {voiceCloningAudioUrl && (
+                  <button 
+                    onClick={() => {
+                      const audio = new Audio(voiceCloningAudioUrl);
+                      audio.play();
+                    }}
+                    className="text-[10px] text-emerald-500 font-medium active:opacity-70"
+                  >
+                    试听
+                  </button>
+                )}
+                <button 
+                  onClick={() => voiceInputRef.current?.click()}
+                  disabled={isUploadingVoice}
+                  className="text-[10px] text-blue-500 font-medium active:opacity-70 disabled:opacity-50"
+                >
+                  {isUploadingVoice ? '上传中...' : '上传音频'}
+                </button>
+              </div>
+              <input 
+                type="file"
+                ref={voiceInputRef}
+                className="hidden"
+                accept="audio/*"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  
+                  setIsUploadingVoice(true);
+                  try {
+                    const reader = new FileReader();
+                    reader.onload = async () => {
+                      const base64Data = (reader.result as string).split(',')[1];
+                      const response = await fetch('/api/upload-voice', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ fileName: file.name, base64Data })
+                      });
+                      const data = await response.json();
+                      if (data.url) {
+                        setVoiceCloningAudioUrl(data.url);
+                        alert('上传成功！请记得保存设置。');
+                      }
+                    };
+                    reader.readAsDataURL(file);
+                  } catch (err) {
+                    console.error(err);
+                    alert('上传失败');
+                  } finally {
+                    setIsUploadingVoice(false);
+                  }
+                }}
+              />
+            </div>
+            <input 
+              type="text" 
+              value={voiceCloningAudioUrl}
+              onChange={(e) => setVoiceCloningAudioUrl(e.target.value)}
+              className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-[13px] text-neutral-800"
+              placeholder="上传或输入音频 URL (CosyVoice/Fish-Speech 克隆用)"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[11px] font-medium text-neutral-500 uppercase tracking-wider ml-1">克隆音频文本内容 (Ref Text)</label>
+            <input 
+              type="text" 
+              value={voiceCloningAudioText}
+              onChange={(e) => setVoiceCloningAudioText(e.target.value)}
+              className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-[13px] text-neutral-800"
+              placeholder="提示音频所说的文字（部分模型需要精确匹配）"
             />
           </div>
 

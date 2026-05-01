@@ -580,3 +580,100 @@ export function processAiResponse(responseText: string, personaName?: string, di
   }
   return processed;
 }
+
+export async function generateSpeechUrl(text: string, apiSettings: ApiSettings): Promise<string | null> {
+  const apiKey = apiSettings.voiceApiKey?.trim() || apiSettings.apiKey?.trim() || process.env.GEMINI_API_KEY;
+  if (!apiKey) return null;
+
+  let endpoint = apiSettings.voiceApiUrl?.trim();
+  const model = apiSettings.voiceModel?.trim() || "OpenBMB/VoxCPM-2.4B";
+  
+  // If only playing with SiliconFlow via default
+  if (!endpoint && (model.includes('VoxCPM') || model.includes('SenseVoice'))) {
+    endpoint = 'https://api.siliconflow.cn/v1/audio/speech';
+  }
+  
+  if (!endpoint) return null;
+
+  if (endpoint.endsWith('/')) {
+    endpoint = endpoint.slice(0, -1);
+  }
+  
+  if (endpoint.endsWith('/chat/completions')) {
+    endpoint = endpoint.replace('/chat/completions', '/audio/speech');
+  }
+
+  try {
+    const body: any = {
+      model: model,
+      input: text,
+      voice: "alloy",
+      response_format: "mp3"
+    };
+
+    // Merge custom params
+    if (apiSettings.voiceParams) {
+      try {
+        const customParams = JSON.parse(apiSettings.voiceParams);
+        Object.assign(body, customParams);
+      } catch (e) {
+        console.warn("Failed to parse voiceParams JSON:", e);
+      }
+    }
+
+    // Handle Voice Cloning / Speaker Prompt
+    if (apiSettings.voiceCloningAudioUrl) {
+      let audioUrl = apiSettings.voiceCloningAudioUrl;
+      
+      // If it's a local upload, we convert to base64 to ensure the external API can read it
+      if (audioUrl.startsWith('/uploads')) {
+        try {
+          const res = await fetch(audioUrl);
+          const blob = await res.blob();
+          const base64: string = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+
+          // SiliconFlow / Fish Audio / CosyVoice style references
+          body.references = [
+            { audio: base64, text: apiSettings.voiceCloningAudioText || "" }
+          ];
+          // Compatibility for some other models
+          body.prompt_audio = base64;
+          body.prompt_text = apiSettings.voiceCloningAudioText || "";
+        } catch (e) {
+          console.error("Error preparing cloning audio:", e);
+        }
+      } else {
+        // If it's a remote URL, pass it directly
+        body.references = [
+          { audio: audioUrl, text: apiSettings.voiceCloningAudioText || "" }
+        ];
+        body.prompt_audio = audioUrl;
+        body.prompt_text = apiSettings.voiceCloningAudioText || "";
+      }
+    }
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (!response.ok) {
+      throw new Error(`TTS API error: ${response.status}`);
+    }
+
+    const blob = await response.blob();
+    return URL.createObjectURL(blob);
+  } catch (error) {
+    console.error("Failed to generate speech:", error);
+    return null;
+  }
+}

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Phone, PhoneOff, Mic, MicOff, Volume2, VolumeX, MessageSquare } from 'lucide-react';
 import { Persona, CallRecord, ApiSettings, WorldbookSettings, UserProfile, ThemeSettings } from '../types';
-import { fetchAiResponse } from '../services/aiService';
+import { fetchAiResponse, generateSpeechUrl } from '../services/aiService';
 import { GoogleGenAI } from '@google/genai';
 
 interface Props {
@@ -26,6 +26,30 @@ export function ActiveCallScreen({ persona, type, onEndCall, apiSettings, worldb
   const [messages, setMessages] = useState<{ role: 'user' | 'ai', text: string }[]>([]);
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const currentCallAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (currentCallAudioRef.current) {
+        currentCallAudioRef.current.pause();
+        currentCallAudioRef.current = null;
+      }
+    };
+  }, []);
+
+  const playVoice = async (text: string) => {
+    if (currentCallAudioRef.current) {
+      currentCallAudioRef.current.pause();
+    }
+    const cleanText = text.replace(/\[.*?\]/g, '').trim();
+    if (!cleanText) return;
+    const url = await generateSpeechUrl(cleanText, apiSettings);
+    if (url) {
+      const audio = new Audio(url);
+      currentCallAudioRef.current = audio;
+      audio.play().catch(e => console.error("Call audio play error:", e));
+    }
+  };
 
   useEffect(() => {
     if (status === 'connected') {
@@ -99,9 +123,11 @@ export function ActiveCallScreen({ persona, type, onEndCall, apiSettings, worldb
       }
 
       setMessages([{ role: 'ai', text }]);
+      playVoice(text);
     } catch (e) {
       console.error(e);
       setMessages([{ role: 'ai', text: '喂？' }]);
+      playVoice('喂？');
     } finally {
       setIsTyping(false);
     }
@@ -163,6 +189,7 @@ export function ActiveCallScreen({ persona, type, onEndCall, apiSettings, worldb
       }
 
       setMessages(prev => [...prev, { role: 'ai', text }]);
+      playVoice(text);
     } catch (e) {
       console.error(e);
     } finally {

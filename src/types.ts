@@ -101,6 +101,8 @@ export interface ApiSettings {
   voiceApiUrl?: string;
   voiceApiKey?: string;
   voiceParams?: string;
+  voiceCloningAudioUrl?: string; // URL to the uploaded voice file
+  voiceCloningAudioText?: string; // Transcription of the reference audio (needed for some models)
   asrModel?: string;
   asrApiUrl?: string;
   asrApiKey?: string;

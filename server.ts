@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import fetch from "node-fetch";
 import Database from "better-sqlite3";
 import path from "path";
+import fs from "fs";
 
 dotenv.config();
 
@@ -77,6 +78,35 @@ async function startServer() {
 
   // --- API Routes ---
   
+  // File upload for voice cloning
+  app.post("/api/upload-voice", (req, res) => {
+    try {
+      const { fileName, base64Data } = req.body;
+      if (!fileName || !base64Data) {
+        return res.status(400).json({ error: "Missing file data" });
+      }
+
+      const buffer = Buffer.from(base64Data, 'base64');
+      const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'voices');
+      
+      // Ensure directory exists
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+
+      const safeFileName = `${Date.now()}-${fileName.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+      const filePath = path.join(uploadDir, safeFileName);
+      
+      fs.writeFileSync(filePath, buffer);
+      
+      const fileUrl = `/uploads/voices/${safeFileName}`;
+      res.json({ url: fileUrl });
+    } catch (error) {
+      console.error("Error uploading voice file:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Get messages from server
   app.get("/api/messages/:personaId", (req, res) => {
     try {
