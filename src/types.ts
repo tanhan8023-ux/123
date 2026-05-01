@@ -150,6 +150,7 @@ export interface ThemeSettings {
   statusColor?: string;
   showStatusBar?: boolean;
   immersiveMode?: boolean;
+  deviceType?: 'phone' | 'tablet' | 'desktop';
   customIcons: Record<string, string>;
   weatherWidgetBg?: string;
   weatherLocation?: string;

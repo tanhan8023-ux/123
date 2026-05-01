@@ -26,6 +26,8 @@ export function Phone({ children, onHomeClick, theme, hideHomeIndicator }: { chi
     return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
   };
 
+  const isWideMode = theme.deviceType === 'tablet' || theme.deviceType === 'desktop' || theme.immersiveMode;
+
   return (
     <div className={`font-sans overflow-hidden ${theme.immersiveMode ? 'fixed inset-0 w-full h-full' : 'h-full flex items-center justify-center sm:bg-neutral-900 sm:p-4'}`} style={{ scrollbarGutter: 'stable' }}>
       {(theme.fontUrl || theme.globalCss) && (
@@ -50,7 +52,11 @@ export function Phone({ children, onHomeClick, theme, hideHomeIndicator }: { chi
         className={`relative w-full ${
           theme.immersiveMode 
             ? 'h-full max-w-none rounded-none border-0' 
-            : 'h-full sm:w-[393px] sm:h-[852px] sm:rounded-[50px] sm:shadow-2xl sm:border-[8px] border-neutral-800'
+            : theme.deviceType === 'tablet'
+              ? 'h-full sm:w-[810px] sm:h-[1080px] sm:rounded-[30px] sm:shadow-2xl sm:border-[12px] border-neutral-800'
+              : theme.deviceType === 'desktop'
+                ? 'h-full sm:w-[1280px] sm:h-[800px] sm:rounded-[24px] sm:shadow-2xl sm:border-[16px] border-neutral-800'
+                : 'h-full sm:w-[393px] sm:h-[852px] sm:rounded-[50px] sm:shadow-2xl sm:border-[8px] border-neutral-800'
         } bg-black flex flex-col shrink-0 overflow-hidden theme-font`}
       >
         
@@ -100,7 +106,7 @@ export function Phone({ children, onHomeClick, theme, hideHomeIndicator }: { chi
         {/* Status Bar */}
         {(theme.showStatusBar !== false) && (
         <div 
-          className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] flex items-center justify-between px-6 z-50 text-xs font-bold pointer-events-none"
+          className={`absolute top-0 left-1/2 -translate-x-1/2 w-full ${isWideMode ? 'max-w-none' : 'max-w-[480px]'} flex items-center justify-between px-6 z-50 text-xs font-bold pointer-events-none`}
           style={{ color: theme.statusColor || '#ffffff', paddingTop: 'calc(0.5rem + env(safe-area-inset-top))', height: 'calc(3.5rem + env(safe-area-inset-top))', textShadow: '0 1px 3px rgba(0,0,0,0.3)' }}
         >
           <span className="text-[13px]">{formatTime(time)}</span>
@@ -140,7 +146,7 @@ export function Phone({ children, onHomeClick, theme, hideHomeIndicator }: { chi
         )}
 
         {/* Screen Content */}
-        <div className={`flex-1 relative z-10 overflow-hidden flex flex-col w-full max-w-[480px] mx-auto ${theme.fontUrl ? 'theme-font' : ''}`}>
+        <div className={`flex-1 relative z-10 overflow-hidden flex flex-col w-full ${isWideMode ? 'max-w-none' : 'max-w-[480px]'} mx-auto ${theme.fontUrl ? 'theme-font' : ''}`}>
           {children}
         </div>
 

@@ -317,9 +317,9 @@ export function BartenderGame({ onBack, apiSettings, personas, messages, setMess
         const text = await generateGameContent(`[系统提示：平局（都是 ${uDice} 点）。请吐槽一下，并要求重新掷骰子。]`);
         if (typeof text === 'string') setHistory(prev => [...prev, { role: 'bartender', text }]);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Roll dice error:", error);
-      setHistory(prev => [...prev, { role: 'system', text: '游戏同步出错，请重试。' }]);
+      setHistory(prev => [...prev, { role: 'system', text: `游戏出错: ${error?.message || '网络请求失败，请重试'}` }]);
     } finally {
       setIsRolling(false);
       setIsLoading(false);
@@ -358,6 +358,9 @@ export function BartenderGame({ onBack, apiSettings, personas, messages, setMess
         } else {
              setGameState('drunk-event');
         }
+    } catch (error: any) {
+        console.error("userMixDrink error:", error);
+        setHistory(prev => [...prev, { role: 'system', text: `游戏出错: ${error?.message || '网络请求失败，请重试'}` }]);
     } finally {
         setIsLoading(false);
     }
@@ -416,9 +419,9 @@ export function BartenderGame({ onBack, apiSettings, personas, messages, setMess
                 setHistory(prev => [...prev, { role: 'bartender', text }]);
             }
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Decision error:", error);
-        setHistory(prev => [...prev, { role: 'system', text: '操作失败，请重试。' }]);
+        setHistory(prev => [...prev, { role: 'system', text: `游戏出错: ${error?.message || '网络请求失败，请重试'}` }]);
       } finally {
         setIsLoading(false);
       }
@@ -446,9 +449,9 @@ export function BartenderGame({ onBack, apiSettings, personas, messages, setMess
                 addToMemory(`你问了用户真心话，用户的回答是：${userAnswer}`);
             }
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Submit answer error:", error);
-        setHistory(prev => [...prev, { role: 'system', text: '提交失败，请重试。' }]);
+        setHistory(prev => [...prev, { role: 'system', text: `游戏出错: ${error?.message || '网络请求失败，请重试'}` }]);
       } finally {
         setUserAnswer('');
         setIsLoading(false);

@@ -854,6 +854,30 @@ export function ThemeSettingsScreen({ theme: initialTheme, onSave, onBack, onExp
             </div>
             
             <div className="flex items-center justify-between border-t border-neutral-100 pt-4">
+              <span className="text-[15px] text-neutral-700">设备样式</span>
+              <div className="flex bg-neutral-100 rounded-lg p-1">
+                <button 
+                  onClick={() => setThemeState({ ...theme, deviceType: 'phone' })}
+                  className={`px-3 py-1 text-xs rounded-md font-medium transition-colors ${!theme.deviceType || theme.deviceType === 'phone' ? 'bg-white shadow border border-neutral-200 text-neutral-900' : 'text-neutral-500'}`}
+                >
+                  手机
+                </button>
+                <button 
+                  onClick={() => setThemeState({ ...theme, deviceType: 'tablet' })}
+                  className={`px-3 py-1 text-xs rounded-md font-medium transition-colors ${theme.deviceType === 'tablet' ? 'bg-white shadow border border-neutral-200 text-neutral-900' : 'text-neutral-500'}`}
+                >
+                  平板
+                </button>
+                <button 
+                  onClick={() => setThemeState({ ...theme, deviceType: 'desktop' })}
+                  className={`px-3 py-1 text-xs rounded-md font-medium transition-colors ${theme.deviceType === 'desktop' ? 'bg-white shadow border border-neutral-200 text-neutral-900' : 'text-neutral-500'}`}
+                >
+                  电脑
+                </button>
+              </div>
+            </div>
+            
+            <div className="flex items-center justify-between border-t border-neutral-100 pt-4">
               <span className="text-[15px] text-neutral-700">沉浸模式 (铺满全屏)</span>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input 

@@ -494,13 +494,18 @@ export async function fetchAiResponse(
   const modelName = forceModel || effectiveApiSettings.model || 'gemini-3-flash-preview';
   const messages = contextMessages.map(m => ({
     role: m.role === 'model' || m.role === 'assistant' ? 'model' : 'user',
-    content: m.content || m.text
+    content: m.content || m.text || " "
   }));
 
-  let currentContent: any = promptText;
+  // Gemini API requires the first message in contents to be from 'user'
+  if (messages.length > 0 && messages[0].role === 'model') {
+    messages.unshift({ role: 'user', content: '游戏开始' });
+  }
+
+  let currentContent: any = promptText || " ";
   if (imageUrl) {
     currentContent = [
-      { type: "text", text: promptText },
+      { type: "text", text: promptText || " " },
       { type: "image_url", image_url: { url: imageUrl } }
     ];
   }
