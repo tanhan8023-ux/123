@@ -26,6 +26,7 @@ export function ApiSettingsScreen({ settings, personas: initialPersonas, userPro
   const [autoUpdateStatus, setAutoUpdateStatus] = useState(settings.autoUpdateStatus ?? true);
   const [isAutoXhsEnabled, setIsAutoXhsEnabled] = useState(settings.isAutoXhsEnabled ?? true);
   const [isProactiveMessagingEnabled, setIsProactiveMessagingEnabled] = useState(settings.isProactiveMessagingEnabled ?? true);
+  const [enableAiPhone, setEnableAiPhone] = useState(settings.enableAiPhone ?? true);
   const [voiceModel, setVoiceModel] = useState(settings.voiceModel || '');
   const [voiceApiUrl, setVoiceApiUrl] = useState(settings.voiceApiUrl || '');
   const [voiceApiKey, setVoiceApiKey] = useState(settings.voiceApiKey || '');
@@ -80,6 +81,8 @@ export function ApiSettingsScreen({ settings, personas: initialPersonas, userPro
                      autoPostMoments !== (settings.autoPostMoments ?? true) ||
                      autoUpdateStatus !== (settings.autoUpdateStatus ?? true) ||
                      isAutoXhsEnabled !== (settings.isAutoXhsEnabled ?? true) ||
+                     isProactiveMessagingEnabled !== (settings.isProactiveMessagingEnabled ?? true) ||
+                     enableAiPhone !== (settings.enableAiPhone ?? true) ||
                      voiceModel !== (settings.voiceModel || '') ||
                      voiceApiUrl !== (settings.voiceApiUrl || '') ||
                      voiceApiKey !== (settings.voiceApiKey || '') ||
@@ -145,7 +148,7 @@ export function ApiSettingsScreen({ settings, personas: initialPersonas, userPro
 
     onSave({ 
       apiUrl, apiKey, model, 
-      momentsApiUrl, momentsApiKey, momentsModel, autoPostMoments, autoUpdateStatus, isAutoXhsEnabled, isProactiveMessagingEnabled,
+      momentsApiUrl, momentsApiKey, momentsModel, autoPostMoments, autoUpdateStatus, isAutoXhsEnabled, isProactiveMessagingEnabled, enableAiPhone,
       voiceModel, voiceApiUrl, voiceApiKey, voiceParams, 
       voiceCloningAudioUrl, voiceCloningAudioText,
       asrModel, asrApiUrl, asrApiKey, asrParams, 
@@ -697,6 +700,16 @@ export function ApiSettingsScreen({ settings, personas: initialPersonas, userPro
               className={`w-10 h-6 rounded-full transition-colors ${isProactiveMessagingEnabled ? 'bg-emerald-500' : 'bg-neutral-300'}`}
             >
               <div className={`w-4 h-4 bg-white rounded-full transition-transform ${isProactiveMessagingEnabled ? 'translate-x-5' : 'translate-x-1'}`} />
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between pt-2 pb-2">
+            <label className="text-[11px] font-medium text-neutral-500 uppercase tracking-wider ml-1">AI 查手机功能</label>
+            <button
+              onClick={() => setEnableAiPhone(!enableAiPhone)}
+              className={`w-10 h-6 rounded-full transition-colors ${enableAiPhone ? 'bg-emerald-500' : 'bg-neutral-300'}`}
+            >
+              <div className={`w-4 h-4 bg-white rounded-full transition-transform ${enableAiPhone ? 'translate-x-5' : 'translate-x-1'}`} />
             </button>
           </div>
 

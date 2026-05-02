@@ -2843,9 +2843,11 @@ ${!isMentioned ? '- 如果你根据人设（比如正在忙、高冷、不想理
         )}
         {activeTab === 'chat' && currentChatId && (
           <div className="flex items-center">
-            <button onClick={() => setShowAiPhoneModal(true)} className="p-2 text-neutral-800 z-50">
-              <Smartphone size={20} />
-            </button>
+            {apiSettings?.enableAiPhone !== false && (
+              <button onClick={() => setShowAiPhoneModal(true)} className="p-2 text-neutral-800 z-50">
+                <Smartphone size={20} />
+              </button>
+            )}
             <button onClick={() => setShowChatSettings(!showChatSettings)} className="p-2 text-neutral-800 relative z-50">
               <MoreHorizontal size={20} />
               {showChatSettings && (

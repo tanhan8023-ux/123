@@ -116,6 +116,7 @@ export interface ApiSettings {
   autoUpdateStatus?: boolean;
   isAutoXhsEnabled?: boolean;
   isProactiveMessagingEnabled?: boolean;
+  enableAiPhone?: boolean;
 }
 
 export interface Widget {
