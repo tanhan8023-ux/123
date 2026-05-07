@@ -847,16 +847,30 @@ export function ApiSettingsScreen({ settings, personas: initialPersonas, userPro
                   try {
                     const reader = new FileReader();
                     reader.onload = async () => {
-                      const base64Data = (reader.result as string).split(',')[1];
-                      const response = await fetch('/api/upload-voice', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ fileName: file.name, base64Data })
-                      });
-                      const data = await response.json();
-                      if (data.url) {
-                        setVoiceCloningAudioUrl(data.url);
-                        alert('上传成功！请记得保存设置。');
+                      const dataUrl = reader.result as string;
+                      const base64Data = dataUrl.split(',')[1];
+                      try {
+                        const response = await fetch('/api/upload-voice', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ fileName: file.name, base64Data })
+                        });
+                        const data = await response.json();
+                        if (data.url) {
+                          setVoiceCloningAudioUrl(data.url);
+                          alert('上传成功！请记得保存设置。');
+                        } else {
+                          throw new Error("No URL returned");
+                        }
+                      } catch (err) {
+                        // 如果在文件版运行，或服务器未启动，后退到直接使用 Data URL 存储
+                        console.warn('服务器上传失败，回退到本地 Base64 存储 (离线版模式)', err);
+                        if (dataUrl.length > 2000000) {
+                          alert('音频文件过大，无法作为离线文件保存，请保持在 1MB 以内或启动服务端。');
+                        } else {
+                          setVoiceCloningAudioUrl(dataUrl);
+                          alert('已本地加载克隆音频！请记得保存设置。注意：此模式会占用缓存空间。');
+                        }
                       }
                     };
                     reader.readAsDataURL(file);

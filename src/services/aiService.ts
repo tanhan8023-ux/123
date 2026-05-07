@@ -77,7 +77,7 @@ export async function withRetry<T>(fn: () => Promise<T>, maxRetries = 6, initial
         const baseDelay = isRateLimit ? Math.max(initialDelay, 3000) : 1000; // Shorter delay for network errors
         // Cap network error retries to 2 to avoid long "typing..." hangs on CORS issues
         if (isNetworkError && retries > 2) {
-           throw new Error("网络请求失败 (可能由于跨域 CORS 限制或网络不通)。如果您在本地文件(file://)中运行，请尝试使用支持跨域的 API 代理，或部署到服务器上。");
+           throw new Error("网络请求失败！(可能由于国内无法直连 AI 模型，或本地文件存在跨域限制)。\n👉 强烈建议：进入右上角「API 设置」，换填国内大模型（如 DeepSeek、Kimi、硅基流动等）的 API URL 和 API Key 即可解决！\n如果你有科学上网且是用本地文件运行，也可能是代理未开启全局或浏览器 CORS 拦截。");
         }
         const delay = Math.min(baseDelay * Math.pow(2, retries - 1), 20000) + Math.random() * 1000;
         const reason = isRateLimit ? "Rate limit exceeded" : "Network error/Server error";
@@ -90,7 +90,7 @@ export async function withRetry<T>(fn: () => Promise<T>, maxRetries = 6, initial
         throw new Error("AI 响应过快，请稍后再试 (Rate limit exceeded)");
       }
       if (isNetworkError) {
-        throw new Error("网络请求失败 (可能由于跨域 CORS 限制或网络不通)。如果您在本地文件(file://)中运行，请尝试使用支持跨域的 API 代理，或部署到服务器上。");
+        throw new Error("网络请求失败！(可能由于国内无法直连 AI 模型，或本地文件存在跨域限制)。\n👉 强烈建议：进入右上角「API 设置」，换填国内大模型（如 DeepSeek、Kimi、硅基流动等）的 API URL 和 API Key 即可解决！\n如果你有科学上网且是用本地文件运行，也可能是代理未开启全局或浏览器 CORS 拦截。");
       }
       
       throw error;
@@ -647,6 +647,14 @@ export async function generateSpeechUrl(text: string, apiSettings: ApiSettings):
         } catch (e) {
           console.error("Error preparing cloning audio:", e);
         }
+      } else if (audioUrl.startsWith('data:')) {
+        // Support offline local storage of audio
+        const base64 = audioUrl.split(',')[1];
+        body.references = [
+          { audio: base64, text: apiSettings.voiceCloningAudioText || "" }
+        ];
+        body.prompt_audio = base64;
+        body.prompt_text = apiSettings.voiceCloningAudioText || "";
       } else {
         // If it's a remote URL, pass it directly
         body.references = [
